@@ -1,0 +1,8 @@
+-keepattributes *Annotation*, InnerClasses, Signature, Exceptions
+-dontwarn kotlinx.serialization.**
+-keep,includedescriptorclasses class com.tuapp.**$$serializer { *; }
+-keepclassmembers class com.tuapp.** { *** Companion; }
+-keepclasseswithmembers class com.tuapp.** { kotlinx.serialization.KSerializer serializer(...); }
+-keep class com.tuapp.data.** { *; }
+-keep class com.tuapp.ui.** { *; }
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
