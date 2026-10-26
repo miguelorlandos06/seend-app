@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -36,7 +36,6 @@ fun MiPerfilSheet(
     onGuardar: (String, String) -> Unit,
     onCambiarAvatar: (Uri) -> Unit
 ) {
-    val ctx = LocalContext.current
     var nombre by remember(s.nombre) { mutableStateOf(s.nombre) }
     var bio by remember(s.bioPropio) { mutableStateOf(s.bioPropio) }
     var avatarPreview by remember(s.avatarPropio) { mutableStateOf<String?>(s.avatarPropio.ifBlank { null }) }
@@ -48,19 +47,17 @@ fun MiPerfilSheet(
         }
     }
 
-    Box(
-        Modifier.fillMaxSize().background(Color(0x99000000)).clickable { onCerrar() }
-    ) {
+    // Fondo oscuro detrás
+    Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable { onCerrar() }) {
+        // Superficie del perfil (sin onClick, con Modifier)
         Surface(
-            Modifier.fillMaxSize(),
-            color = Color.White,
-            modifier = Modifier.clickable(enabled = false) {}
+            modifier = Modifier.fillMaxSize(),
+            color = Color.White
         ) {
             Column(Modifier.fillMaxSize()) {
-                // ---- Top bar ----
+                // Top bar
                 Row(
-                    Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)
-                        .padding(8.dp),
+                    Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onCerrar) {
@@ -70,7 +67,7 @@ fun MiPerfilSheet(
                 }
                 Divider(color = Borde, thickness = 1.dp)
 
-                // ---- Contenido ----
+                // Contenido
                 Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -124,7 +121,7 @@ fun MiPerfilSheet(
                                 .background(if (focusN) Color.White else Fondo, RoundedCornerShape(12.dp))
                                 .border(1.5.dp, if (focusN) Azul else Borde, RoundedCornerShape(12.dp))
                                 .padding(14.dp)
-                                .onFocusChanged { focusN = it.isFocused }
+                                .onFocusChangedModifier(focusN) { focusN = it }
                         )
                     }
                     Spacer(Modifier.height(20.dp))
@@ -143,7 +140,7 @@ fun MiPerfilSheet(
                                 .background(if (focusB) Color.White else Fondo, RoundedCornerShape(12.dp))
                                 .border(1.5.dp, if (focusB) Azul else Borde, RoundedCornerShape(12.dp))
                                 .padding(14.dp)
-                                .onFocusChanged { focusB = it.isFocused }
+                                .onFocusChangedModifier(focusB) { focusB = it }
                         )
                     }
                     Spacer(Modifier.height(28.dp))
@@ -170,7 +167,7 @@ fun MiPerfilSheet(
 
                     // Cerrar sesión
                     Button(
-                        onClick = { onCerrar() /* El logout real va en 4c */ },
+                        onClick = onCerrar,
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -184,4 +181,11 @@ fun MiPerfilSheet(
             }
         }
     }
+}
+
+@Composable
+private fun Modifier.onFocusChangedModifier(initial: Boolean, onChange: (Boolean) -> Unit): Modifier {
+    return this.then(
+        androidx.compose.ui.focus.onFocusChanged { onChange(it.isFocused) }
+    )
 }

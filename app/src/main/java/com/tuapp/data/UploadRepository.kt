@@ -48,8 +48,15 @@ class UploadRepository(
     ) = withContext(Dispatchers.IO) {
         val (stream, size) = openStream(ctx, uri)
         val body = ProgressRequestBody(stream, size, mime, onProgress)
+
+        // Preferir url_put_directa (MinIO directo) → sin proxy, sin latencia extra
+        // Si no existe, usar url_put (relativa) → prefijar con baseHttp (proxy Render)
+        val urlCruda = prep.url_put_directa?.takeIf { it.isNotBlank() } ?: prep.url_put
+        val urlFinal = if (urlCruda.startsWith("http")) urlCruda
+                       else "$baseHttp$urlCruda"
+
         val req = Request.Builder()
-            .url(prep.url_put)
+            .url(urlFinal)
             .put(body)
             .header("Content-Type", mime)
             .build()

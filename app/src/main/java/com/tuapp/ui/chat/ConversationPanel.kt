@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -64,6 +65,7 @@ fun ConversationPanel(
     }
 
     Column(Modifier.fillMaxSize().background(Fondo).imePadding()) {
+        // ---- Header ----
         Row(
             Modifier.fillMaxWidth().background(Color.White)
                 .windowInsetsPadding(WindowInsets.statusBars)
@@ -76,18 +78,24 @@ fun ConversationPanel(
             val chat = s.chats.find { it.otro == otro }
             val usuario = s.usuarios.find { it.nombre == otro }
             val avatarUrl = chat?.avatar ?: usuario?.avatar ?: ""
-            Avatar(avatarUrl, otro, 42.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f).clickable { onPerfilOtro() }) {
-                Text(otro, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                val (txt, color) = estadoHeader(s, otro)
-                Text(txt, fontSize = 12.5.sp, color = color,
-                    fontStyle = if (s.escribiendo[otro] == true) FontStyle.Italic else FontStyle.Normal,
-                    fontWeight = if (s.escribiendo[otro] == true) FontWeight.Medium else FontWeight.Normal)
+            Row(
+                Modifier.weight(1f).clickable { onPerfilOtro() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Avatar(avatarUrl, otro, 42.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(otro, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    val (txt, color) = estadoHeader(s, otro)
+                    Text(txt, fontSize = 12.5.sp, color = color,
+                        fontStyle = if (s.escribiendo[otro] == true) FontStyle.Italic else FontStyle.Normal,
+                        fontWeight = if (s.escribiendo[otro] == true) FontWeight.Medium else FontWeight.Normal)
+                }
             }
         }
         Divider(color = Borde, thickness = 1.dp)
 
+        // ---- Mensajes ----
         LazyColumn(
             state = listaState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -104,6 +112,7 @@ fun ConversationPanel(
             }
         }
 
+        // ---- Barra de respuesta ----
         s.respondiendoA?.let { r ->
             Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -121,6 +130,7 @@ fun ConversationPanel(
             Divider(color = Borde, thickness = 1.dp)
         }
 
+        // ---- Input ----
         Row(
             Modifier.fillMaxWidth().background(Color.White)
                 .windowInsetsPadding(WindowInsets.navigationBars)

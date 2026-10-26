@@ -16,6 +16,7 @@ data class UploadPrepareRequest(
 data class UploadPrepareResponse(
     val upload_id: String,
     val url_put: String,
+    val url_put_directa: String? = null,
     val url_publica: String,
     val msg_id: String = "",
     val expira_en: Int = 120,
