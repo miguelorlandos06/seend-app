@@ -1,6 +1,7 @@
 package com.tuapp.data
 
 import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody
 import okio.BufferedSink
 import java.io.InputStream
@@ -11,7 +12,7 @@ class ProgressRequestBody(
     private val mime: String,
     private val onProgress: (enviado: Long, total: Long) -> Unit
 ) : RequestBody() {
-    override fun contentType(): MediaType? = MediaType.parse(mime)
+    override fun contentType(): MediaType? = mime.toMediaTypeOrNull()
     override fun contentLength(): Long = totalBytes
     override fun writeTo(sink: BufferedSink) {
         val buf = ByteArray(64 * 1024)
