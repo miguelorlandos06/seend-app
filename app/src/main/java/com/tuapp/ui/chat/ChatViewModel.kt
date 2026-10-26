@@ -13,8 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 data class UiState(
@@ -49,16 +47,19 @@ class ChatViewModel(
         if (escuchando) return
         escuchando = true
 
+        // Escuchar eventos WS
         viewModelScope.launch {
             ws.events.collect(::manejarEvento)
         }
 
+        // Escuchar estado de conexión
         viewModelScope.launch {
             ws.connected.collect { conectado ->
                 _ui.update { it.copy(conectado = conectado) }
             }
         }
 
+        // Conectar y validar sesión
         viewModelScope.launch {
             try {
                 ws.conectar()
@@ -73,7 +74,7 @@ class ChatViewModel(
             }
         }
 
-        // Observa Room: chats y usuarios se actualizan solos
+        // Observar Room
         viewModelScope.launch {
             repo.chats().collect { chats -> _ui.update { it.copy(chats = chats) } }
         }
@@ -82,16 +83,16 @@ class ChatViewModel(
         }
     }
 
-    // ============================================================
-    // Manejo de eventos WS → Room → UI
-    // ============================================================
     private fun manejarEvento(m: JsonObject) {
         when (m["tipo"]?.jsonPrimitive?.content) {
 
             "sesion_valida" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 _ui.update { it.copy(nombre = nombre) }
-                store.token()?.let { ws.entrar(it) }
+                viewModelScope.launch {
+                    val token = store.token()
+                    if (token != null) ws.entrar(token)
+                }
             }
 
             "sesion_invalida" -> {
@@ -173,10 +174,6 @@ class ChatViewModel(
                 }
             }
 
-            "perfil" -> {
-                // Se maneja en Bloque 4 (perfiles)
-            }
-
             "perfil_actualizado" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 viewModelScope.launch { store.guardarNombre(nombre) }
@@ -205,9 +202,6 @@ class ChatViewModel(
         }
     }
 
-    // ============================================================
-    // Acciones de UI
-    // ============================================================
     fun abrirChat(otro: String) {
         _ui.update {
             it.copy(
