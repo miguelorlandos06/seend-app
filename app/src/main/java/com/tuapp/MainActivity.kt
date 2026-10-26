@@ -9,9 +9,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.tuapp.data.ChatRepository
-import com.tuapp.data.ChatWebSocket
-import com.tuapp.data.SessionStore
 import com.tuapp.ui.auth.AuthScreen
 import com.tuapp.ui.chat.ChatScreen
 import com.tuapp.ui.chat.ChatViewModel
@@ -40,7 +37,7 @@ class MainActivity : ComponentActivity() {
                     val vm: ChatViewModel = viewModel(factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
                             @Suppress("UNCHECKED_CAST")
-                            return ChatViewModel(app.ws, app.sessionStore, app.repo) as T
+                            return ChatViewModel(app.ws, app.sessionStore, app.repo, app.uploader) as T
                         }
                     })
                     ChatScreen(vm)

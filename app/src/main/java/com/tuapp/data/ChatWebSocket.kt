@@ -7,11 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.put
+import kotlinx.serialization.json.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -81,11 +77,19 @@ class ChatWebSocket(
     })
     fun marcarLeido(otro: String, ids: List<String>) = send(buildJsonObject {
         put("tipo", "marcar_leido"); put("otro", otro)
-        putJsonArrayCompat("ids", ids)
+        put("ids", JsonArray(ids.map { JsonPrimitive(it) }))
     })
     fun enviarMensaje(para: String, texto: String, responderA: String?) = send(buildJsonObject {
         put("tipo", "mensaje"); put("para", para); put("texto", texto)
         if (responderA != null) put("responder_a", responderA)
+    })
+    fun enviarMensajeConImagen(
+        para: String, texto: String, imagenUrl: String,
+        imagenTamano: String, imagenDim: String
+    ) = send(buildJsonObject {
+        put("tipo", "mensaje"); put("para", para); put("texto", texto)
+        put("imagen_url", imagenUrl); put("imagen_tamano", imagenTamano)
+        put("imagen_dim", imagenDim)
     })
     fun escribiendo(para: String, activo: Boolean) = send(buildJsonObject {
         put("tipo", "escribiendo"); put("para", para); put("activo", activo)
@@ -100,10 +104,4 @@ class ChatWebSocket(
     fun eliminarChat(otro: String) = send(buildJsonObject {
         put("tipo", "eliminar_chat"); put("otro", otro)
     })
-}
-
-private fun kotlinx.serialization.json.JsonObjectBuilder.putJsonArrayCompat(
-    key: String, values: List<String>
-) {
-    put(key, kotlinx.serialization.json.JsonArray(values.map { kotlinx.serialization.json.JsonPrimitive(it) }))
 }

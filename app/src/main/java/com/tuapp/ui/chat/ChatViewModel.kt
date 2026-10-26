@@ -1,10 +1,13 @@
 package com.tuapp.ui.chat
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tuapp.data.ChatRepository
 import com.tuapp.data.ChatWebSocket
 import com.tuapp.data.SessionStore
+import com.tuapp.data.UploadRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 data class UiState(
@@ -23,17 +28,18 @@ data class UiState(
     val mostrandoUsuarios: Boolean = false,
     val chatActual: String? = null,
     val mensajes: List<Msg> = emptyList(),
+    val subiendo: List<Msg> = emptyList(),
     val escribiendo: Map<String, Boolean> = emptyMap(),
     val respondiendoA: Msg? = null,
     val error: String? = null,
-    val cargando: Boolean = false,
-    val enviando: Boolean = false
+    val cargando: Boolean = false
 )
 
 class ChatViewModel(
     private val ws: ChatWebSocket,
     private val store: SessionStore,
-    private val repo: ChatRepository
+    private val repo: ChatRepository,
+    private val uploader: UploadRepository
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(UiState())
@@ -47,34 +53,20 @@ class ChatViewModel(
         if (escuchando) return
         escuchando = true
 
-        // Escuchar eventos WS
+        viewModelScope.launch { ws.events.collect(::manejarEvento) }
         viewModelScope.launch {
-            ws.events.collect(::manejarEvento)
+            ws.connected.collect { conectado -> _ui.update { it.copy(conectado = conectado) } }
         }
-
-        // Escuchar estado de conexión
-        viewModelScope.launch {
-            ws.connected.collect { conectado ->
-                _ui.update { it.copy(conectado = conectado) }
-            }
-        }
-
-        // Conectar y validar sesión
         viewModelScope.launch {
             try {
                 ws.conectar()
                 val token = store.token()
-                if (token != null) {
-                    ws.validarSesion(token)
-                } else {
-                    _ui.update { it.copy(error = "Sesión no encontrada") }
-                }
+                if (token != null) ws.validarSesion(token)
+                else _ui.update { it.copy(error = "Sesión no encontrada") }
             } catch (e: Exception) {
                 _ui.update { it.copy(error = "No se pudo conectar: ${e.message}") }
             }
         }
-
-        // Observar Room
         viewModelScope.launch {
             repo.chats().collect { chats -> _ui.update { it.copy(chats = chats) } }
         }
@@ -85,36 +77,29 @@ class ChatViewModel(
 
     private fun manejarEvento(m: JsonObject) {
         when (m["tipo"]?.jsonPrimitive?.content) {
-
             "sesion_valida" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 _ui.update { it.copy(nombre = nombre) }
                 viewModelScope.launch {
-                    val token = store.token()
-                    if (token != null) ws.entrar(token)
+                    store.token()?.let { ws.entrar(it) }
                 }
             }
-
             "sesion_invalida" -> {
                 viewModelScope.launch { store.clear() }
                 _ui.update { it.copy(error = "Sesión inválida. Vuelve a iniciar sesión.") }
             }
-
             "chats" -> {
                 val chats = parseChats(m["chats"]!!.jsonArray)
                 viewModelScope.launch { repo.reemplazarChats(chats) }
             }
-
             "usuarios" -> {
                 val usuarios = parseUsuarios(m["usuarios"]!!.jsonArray)
                 viewModelScope.launch { repo.reemplazarUsuarios(usuarios) }
             }
-
             "conversacion" -> {
                 val otro = m["otro"]!!.jsonPrimitive.content
                 val mensajes = parseMensajes(m["mensajes"]!!.jsonArray)
-                val chat = _ui.value.chatActual
-                if (chat == otro) {
+                if (_ui.value.chatActual == otro) {
                     viewModelScope.launch {
                         repo.guardarMensajes(mensajes)
                         val ids = mensajes.filter { it.de == otro && it.estado != "visto" }.map { it.id }
@@ -122,10 +107,8 @@ class ChatViewModel(
                     }
                 }
             }
-
             "mensaje" -> {
                 val msg = parseMensaje(m["mensaje"]!!.jsonObject)
-                val eco = m["eco"]?.jsonPrimitive?.booleanOrNull == true
                 viewModelScope.launch {
                     repo.guardarMensaje(msg)
                     val otro = if (msg.de == _ui.value.nombre) msg.para else msg.de
@@ -135,7 +118,6 @@ class ChatViewModel(
                 }
                 ws.pedirChats()
             }
-
             "estados" -> {
                 val ids = m["ids"]!!.jsonArray.map { it.jsonPrimitive.content }
                 val estado = m["estado"]!!.jsonPrimitive.content
@@ -144,7 +126,6 @@ class ChatViewModel(
                     ws.pedirChats()
                 }
             }
-
             "escribiendo" -> {
                 val de = m["de"]!!.jsonPrimitive.content
                 val activo = m["activo"]!!.jsonPrimitive.boolean
@@ -157,7 +138,6 @@ class ChatViewModel(
                     }
                 }
             }
-
             "presencia" -> {
                 val usuario = m["usuario"]!!.jsonPrimitive.content
                 val enLinea = m["en_linea"]!!.jsonPrimitive.boolean
@@ -173,13 +153,11 @@ class ChatViewModel(
                     repo.reemplazarUsuarios(usuarios)
                 }
             }
-
             "perfil_actualizado" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 viewModelScope.launch { store.guardarNombre(nombre) }
                 _ui.update { it.copy(nombre = nombre) }
             }
-
             "perfil_actualizado_otro" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
@@ -194,7 +172,6 @@ class ChatViewModel(
                     repo.reemplazarUsuarios(usuarios)
                 }
             }
-
             "error" -> {
                 val texto = m["texto"]?.jsonPrimitive?.content ?: "Error"
                 _ui.update { it.copy(error = texto, cargando = false) }
@@ -204,12 +181,7 @@ class ChatViewModel(
 
     fun abrirChat(otro: String) {
         _ui.update {
-            it.copy(
-                chatActual = otro,
-                mensajes = emptyList(),
-                mostrandoUsuarios = false,
-                respondiendoA = null
-            )
+            it.copy(chatActual = otro, mensajes = emptyList(), mostrandoUsuarios = false, respondiendoA = null)
         }
         mensajesJob?.cancel()
         mensajesJob = viewModelScope.launch {
@@ -224,9 +196,7 @@ class ChatViewModel(
     fun cerrarChat() {
         mensajesJob?.cancel()
         mensajesJob = null
-        _ui.update {
-            it.copy(chatActual = null, mensajes = emptyList(), respondiendoA = null)
-        }
+        _ui.update { it.copy(chatActual = null, mensajes = emptyList(), respondiendoA = null) }
     }
 
     fun mostrarUsuarios() {
@@ -234,10 +204,7 @@ class ChatViewModel(
         ws.pedirUsuarios()
     }
 
-    fun volverAHome() {
-        _ui.update { it.copy(mostrandoUsuarios = false) }
-    }
-
+    fun volverAHome() = _ui.update { it.copy(mostrandoUsuarios = false) }
     fun responderA(m: Msg?) = _ui.update { it.copy(respondiendoA = m) }
 
     fun enviarTexto(texto: String) {
@@ -249,6 +216,83 @@ class ChatViewModel(
         _ui.update { it.copy(respondiendoA = null) }
         ws.escribiendo(chat, false)
     }
+
+    fun enviarImagen(ctx: Context, uri: Uri, texto: String = "") {
+        val chat = _ui.value.chatActual ?: return
+        val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
+        val size = ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: 0L
+        val dims = leerDimensiones(ctx, uri)
+        val tmpId = "tmp_${System.currentTimeMillis()}"
+        val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+
+        val provisional = Msg(
+            id = tmpId, de = _ui.value.nombre, para = chat, texto = texto,
+            hora = hora, ts = System.currentTimeMillis() / 1000.0,
+            subidaEstado = SubidaEstado.Pendiente,
+            bytesTotales = size, bytesSubidos = 0, progreso = 0f,
+            dimensiones = dims
+        )
+        _ui.update { it.copy(subiendo = it.subiendo + provisional) }
+
+        viewModelScope.launch {
+            try {
+                val token = store.token() ?: error("Sin token")
+                val prep = uploader.prepare(token, "mensaje", chat, mime, size)
+                _ui.update { s ->
+                    s.copy(subiendo = s.subiendo.map {
+                        if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Subiendo) else it
+                    })
+                }
+                uploader.upload(ctx, uri, prep, mime) { subido, total ->
+                    _ui.update { s ->
+                        s.copy(subiendo = s.subiendo.map {
+                            if (it.id == tmpId) it.copy(
+                                progreso = if (total > 0) subido.toFloat() / total else 0f,
+                                bytesSubidos = subido, bytesTotales = total
+                            ) else it
+                        })
+                    }
+                }
+                ws.enviarMensajeConImagen(chat, texto, prep.url_publica, fmtBytes(size), dims ?: "")
+                _ui.update { s ->
+                    s.copy(subiendo = s.subiendo.filterNot { it.id == tmpId })
+                }
+            } catch (e: Exception) {
+                _ui.update { s ->
+                    s.copy(subiendo = s.subiendo.map {
+                        if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Fallida) else it
+                    })
+                }
+            }
+        }
+    }
+
+    fun cambiarAvatar(ctx: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val token = store.token() ?: error("Sin token")
+                val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
+                val size = ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: 0L
+                if (size > 300 * 1024) {
+                    _ui.update { it.copy(error = "El avatar debe ser menor de 300 KB") }
+                    return@launch
+                }
+                val prep = uploader.prepare(token, "avatar", null, mime, size)
+                uploader.upload(ctx, uri, prep, mime) { _, _ -> }
+                ws.actualizarPerfil(_ui.value.nombre, "", prep.url_publica)
+            } catch (e: Exception) {
+                _ui.update { it.copy(error = "Error al subir avatar: ${e.message}") }
+            }
+        }
+    }
+
+    private fun leerDimensiones(ctx: Context, uri: Uri): String? = runCatching {
+        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        ctx.contentResolver.openInputStream(uri)?.use {
+            android.graphics.BitmapFactory.decodeStream(it, null, opts)
+        }
+        if (opts.outWidth > 0 && opts.outHeight > 0) "${opts.outWidth} × ${opts.outHeight}" else null
+    }.getOrNull()
 
     fun onTextoCambia(texto: String) {
         val chat = _ui.value.chatActual ?: return
@@ -267,9 +311,6 @@ class ChatViewModel(
         }
     }
 
-    // ============================================================
-    // Parsers JSON
-    // ============================================================
     private fun parseChats(arr: JsonArray): List<ChatItem> = arr.map { el ->
         val o = el.jsonObject
         val ult = o["ultimo"]!!.jsonObject
