@@ -74,4 +74,36 @@ class ChatWebSocket(
     fun entrar(token: String) = send(buildJsonObject {
         put("tipo", "entrar"); put("token", token)
     })
+    fun pedirChats() = send(buildJsonObject { put("tipo", "pedir_chats") })
+    fun pedirUsuarios() = send(buildJsonObject { put("tipo", "pedir_usuarios") })
+    fun abrirChat(otro: String) = send(buildJsonObject {
+        put("tipo", "abrir_chat"); put("otro", otro)
+    })
+    fun marcarLeido(otro: String, ids: List<String>) = send(buildJsonObject {
+        put("tipo", "marcar_leido"); put("otro", otro)
+        putJsonArrayCompat("ids", ids)
+    })
+    fun enviarMensaje(para: String, texto: String, responderA: String?) = send(buildJsonObject {
+        put("tipo", "mensaje"); put("para", para); put("texto", texto)
+        if (responderA != null) put("responder_a", responderA)
+    })
+    fun escribiendo(para: String, activo: Boolean) = send(buildJsonObject {
+        put("tipo", "escribiendo"); put("para", para); put("activo", activo)
+    })
+    fun actualizarPerfil(nombre: String, bio: String, avatarUrl: String?) = send(buildJsonObject {
+        put("tipo", "actualizar_perfil"); put("nombre", nombre); put("bio", bio)
+        if (avatarUrl != null) put("avatar_url", avatarUrl)
+    })
+    fun pedirPerfil(quien: String) = send(buildJsonObject {
+        put("tipo", "pedir_perfil"); put("quien", quien)
+    })
+    fun eliminarChat(otro: String) = send(buildJsonObject {
+        put("tipo", "eliminar_chat"); put("otro", otro)
+    })
+}
+
+private fun kotlinx.serialization.json.JsonObjectBuilder.putJsonArrayCompat(
+    key: String, values: List<String>
+) {
+    put(key, kotlinx.serialization.json.JsonArray(values.map { kotlinx.serialization.json.JsonPrimitive(it) }))
 }

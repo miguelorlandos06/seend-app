@@ -63,8 +63,11 @@ class ChatViewModel(
             try {
                 ws.conectar()
                 val token = store.token()
-                if (token != null) ws.validarSesion(token)
-                else _ui.update { it.copy(error = "Sesión no encontrada") }
+                if (token != null) {
+                    ws.validarSesion(token)
+                } else {
+                    _ui.update { it.copy(error = "Sesión no encontrada") }
+                }
             } catch (e: Exception) {
                 _ui.update { it.copy(error = "No se pudo conectar: ${e.message}") }
             }

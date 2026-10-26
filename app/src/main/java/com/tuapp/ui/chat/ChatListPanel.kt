@@ -10,8 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -198,15 +196,7 @@ private fun ChatRow(
     }
 }
 
-@Composable
-private fun CheckIcon(estado: String) {
-    val (icon, tint) = when (estado) {
-        "visto" -> Icons.Default.DoneAll to Azul
-        "entregado" -> Icons.Default.DoneAll to Color(0xFF64748B)
-        else -> Icons.Default.Done to Color(0xFF94A3B8)
-    }
-    Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
-}
+// CheckIcon viene de MessageBubble.kt
 
 @Composable
 private fun ListaUsuarios(s: UiState, onAbrirChat: (String) -> Unit) {
