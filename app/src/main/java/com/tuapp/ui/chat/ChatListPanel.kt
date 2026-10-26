@@ -29,7 +29,8 @@ fun ChatListPanel(
     s: UiState,
     onAbrirChat: (String) -> Unit,
     onMostrarUsuarios: () -> Unit,
-    onVolverHome: () -> Unit
+    onVolverHome: () -> Unit,
+    onAbrirMiPerfil: () -> Unit
 ) {
     Scaffold(
         containerColor = Color.White,
@@ -58,7 +59,7 @@ fun ChatListPanel(
                     Row(
                         Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .clickable { /* Mi perfil → Bloque 4 */ }
+                            .clickable { onAbrirMiPerfil() }
                             .padding(4.dp, 4.dp, 8.dp, 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

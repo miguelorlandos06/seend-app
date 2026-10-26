@@ -40,7 +40,8 @@ fun ChatScreen(vm: ChatViewModel) {
                 s = s,
                 onAbrirChat = vm::abrirChat,
                 onMostrarUsuarios = vm::mostrarUsuarios,
-                onVolverHome = vm::volverAHome
+                onVolverHome = vm::volverAHome,
+                onAbrirMiPerfil = vm::abrirMiPerfil
             )
         } else {
             ConversationPanel(
@@ -50,9 +51,23 @@ fun ChatScreen(vm: ChatViewModel) {
                 onEnviarImagen = { uri, texto -> vm.enviarImagen(ctx, uri, texto) },
                 onResponderA = { m -> vm.responderA(m) },
                 onTextoCambia = { t -> vm.onTextoCambia(t) },
-                onVerImagen = { url -> imagenVisor = url }
+                onVerImagen = { url -> imagenVisor = url },
+                onPerfilOtro = { vm.pedirPerfil(s.chatActual!!) }
             )
         }
+    }
+
+    if (s.mostrarMiPerfil) {
+        MiPerfilSheet(
+            s = s,
+            onCerrar = { vm.cerrarMiPerfil() },
+            onGuardar = { nombre, bio -> vm.guardarPerfil(nombre, bio) },
+            onCambiarAvatar = { uri -> vm.cambiarAvatar(ctx, uri) }
+        )
+    }
+
+    s.perfilOtro?.let { p ->
+        PerfilOtroSheet(perfil = p, onCerrar = { vm.cerrarPerfilOtro() })
     }
 
     imagenVisor?.let { url ->

@@ -20,6 +20,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class PerfilPublico(
+    val nombre: String,
+    val bio: String,
+    val avatar: String,
+    val enLinea: Boolean,
+    val ultima: Double
+)
+
 data class UiState(
     val conectado: Boolean = false,
     val nombre: String = "",
@@ -32,7 +40,12 @@ data class UiState(
     val escribiendo: Map<String, Boolean> = emptyMap(),
     val respondiendoA: Msg? = null,
     val error: String? = null,
-    val cargando: Boolean = false
+    val cargando: Boolean = false,
+    val bioPropio: String = "",
+    val avatarPropio: String = "",
+    val guardandoPerfil: Boolean = false,
+    val perfilOtro: PerfilPublico? = null,
+    val mostrarMiPerfil: Boolean = false
 )
 
 class ChatViewModel(
@@ -153,10 +166,22 @@ class ChatViewModel(
                     repo.reemplazarUsuarios(usuarios)
                 }
             }
+            "perfil" -> {
+                val nombre = m["nombre"]!!.jsonPrimitive.content
+                val bio = m["bio"]?.jsonPrimitive?.content ?: ""
+                val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
+                val enLinea = m["en_linea"]?.jsonPrimitive?.boolean ?: false
+                val ultima = m["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                _ui.update { it.copy(perfilOtro = PerfilPublico(nombre, bio, avatar, enLinea, ultima)) }
+            }
+
             "perfil_actualizado" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
+                val bio = m["bio"]?.jsonPrimitive?.content ?: ""
+                val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
                 viewModelScope.launch { store.guardarNombre(nombre) }
-                _ui.update { it.copy(nombre = nombre) }
+                _ui.update { it.copy(nombre = nombre, bioPropio = bio, avatarPropio = avatar,
+                    guardandoPerfil = false, mostrarMiPerfil = false) }
             }
             "perfil_actualizado_otro" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
@@ -367,4 +392,20 @@ class ChatViewModel(
             }
         )
     }
+
+    fun abrirMiPerfil() = _ui.update { it.copy(mostrarMiPerfil = true) }
+    fun cerrarMiPerfil() = _ui.update { it.copy(mostrarMiPerfil = false) }
+
+    fun guardarPerfil(nombre: String, bio: String) {
+        _ui.update { it.copy(guardandoPerfil = true) }
+        ws.actualizarPerfil(nombre, bio, null)
+    }
+
+    fun pedirPerfil(quien: String) {
+        ws.pedirPerfil(quien)
+        _ui.update { it.copy(perfilOtro = PerfilPublico(quien, "", "", false, 0.0)) }
+    }
+
+    fun cerrarPerfilOtro() = _ui.update { it.copy(perfilOtro = null) }
+
 }

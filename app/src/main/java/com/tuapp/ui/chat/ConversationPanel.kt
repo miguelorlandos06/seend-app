@@ -41,7 +41,8 @@ fun ConversationPanel(
     onEnviarImagen: (Uri, String) -> Unit,
     onResponderA: (Msg?) -> Unit,
     onTextoCambia: (String) -> Unit,
-    onVerImagen: (String) -> Unit
+    onVerImagen: (String) -> Unit,
+    onPerfilOtro: () -> Unit
 ) {
     val otro = s.chatActual ?: return
     val listaState = rememberLazyListState()
@@ -77,7 +78,7 @@ fun ConversationPanel(
             val avatarUrl = chat?.avatar ?: usuario?.avatar ?: ""
             Avatar(avatarUrl, otro, 42.dp)
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).clickable { onPerfilOtro() }) {
                 Text(otro, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 val (txt, color) = estadoHeader(s, otro)
                 Text(txt, fontSize = 12.5.sp, color = color,
