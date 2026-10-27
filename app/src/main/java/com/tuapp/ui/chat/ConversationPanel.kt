@@ -96,7 +96,10 @@ fun ConversationPanel(
         Divider(color = Borde, thickness = 1.dp)
 
         // ---- Mensajes ----
-        LazyColumn(
+        if (mensajesVisibles.isEmpty() && s.estadoConexion is com.tuapp.data.EstadoConexion.Conectando) {
+            com.tuapp.ui.components.SkeletonConversacion()
+        } else {
+            LazyColumn(
             state = listaState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
@@ -110,6 +113,7 @@ fun ConversationPanel(
                     onVerImagen = onVerImagen
                 )
             }
+        }
         }
 
         // ---- Barra de respuesta ----

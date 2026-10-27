@@ -39,6 +39,7 @@ fun MessageBubble(
     val fg = if (propio) Texto else Color.White
     val borderMod = if (propio) Modifier.border(1.dp, Borde, RoundedCornerShape(16.dp)) else Modifier
 
+    com.tuapp.ui.chat.SwipeToReplyContainer(onReply = onReply) {
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start
@@ -88,6 +89,7 @@ fun MessageBubble(
                 }
             }
         }
+    }
     }
 }
 

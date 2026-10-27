@@ -48,13 +48,11 @@ fun ChatListPanel(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Azul)
                     }
                 }
-                Text(
-                    text = if (s.mostrandoUsuarios) "Usuarios" else "Mensajes",
-                    modifier = Modifier.weight(1f),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.3).sp
-                )
+                if (s.mostrandoUsuarios) {
+                    Text("Usuarios", modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                } else {
+                    TituloReactivo(estado = s.estadoConexion, modifier = Modifier.weight(1f))
+                }
                 if (!s.mostrandoUsuarios) {
                     Row(
                         Modifier
@@ -102,7 +100,11 @@ fun ChatListPanel(
 
 @Composable
 private fun ListaChats(s: UiState, onAbrirChat: (String) -> Unit) {
-    if (s.chats.isEmpty()) {
+    if (s.chats.isEmpty() && s.estadoConexion is com.tuapp.data.EstadoConexion.Conectando) {
+            com.tuapp.ui.components.SkeletonChats()
+            return
+        }
+        if (s.chats.isEmpty()) {
         Box(Modifier.fillMaxSize(), Alignment.Center) {
             Text(
                 "No tienes conversaciones.\nPulsa el botón + para empezar.",
