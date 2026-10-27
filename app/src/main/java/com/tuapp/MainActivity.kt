@@ -14,6 +14,7 @@ import com.tuapp.ui.auth.AuthScreen
 import com.tuapp.ui.chat.ChatScreen
 import com.tuapp.ui.chat.ChatViewModel
 import com.tuapp.ui.theme.AppTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var autenticado by rememberSaveable { mutableStateOf(false) }
             val oscuroPref by app.temaPrefs.oscuro.collectAsState(initial = isSystemInDarkTheme())
+            val scope = rememberCoroutineScope()
 
             LaunchedEffect(Unit) {
                 if (app.sessionStore.token() != null) autenticado = true
@@ -44,7 +46,10 @@ class MainActivity : ComponentActivity() {
                     })
                     ChatScreen(
                         vm = vm,
-                        onToggleTema = { oscuro -> app.temaPrefs.set(oscuro) },
+                        onToggleTema = { oscuro -> 
+                            // Usar coroutine para llamar a la función suspend
+                            scope.launch { app.temaPrefs.set(oscuro) }
+                        },
                         isOscuro = oscuroPref
                     )
                 }
