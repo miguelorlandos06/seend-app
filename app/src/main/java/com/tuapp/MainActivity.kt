@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.ViewModel
@@ -20,13 +21,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as App
         setContent {
-            AppTheme {
-                var autenticado by rememberSaveable { mutableStateOf(false) }
+            var autenticado by rememberSaveable { mutableStateOf(false) }
+            val oscuroPref by app.temaPrefs.oscuro.collectAsState(initial = isSystemInDarkTheme())
 
-                LaunchedEffect(Unit) {
-                    if (app.sessionStore.token() != null) autenticado = true
-                }
+            LaunchedEffect(Unit) {
+                if (app.sessionStore.token() != null) autenticado = true
+            }
 
+            AppTheme(oscuro = oscuroPref) {
                 if (!autenticado) {
                     AuthScreen(
                         ws = app.ws,
@@ -40,7 +42,11 @@ class MainActivity : ComponentActivity() {
                             return ChatViewModel(app.ws, app.sessionStore, app.repo, app.uploader) as T
                         }
                     })
-                    ChatScreen(vm)
+                    ChatScreen(
+                        vm = vm,
+                        onToggleTema = { oscuro -> app.temaPrefs.set(oscuro) },
+                        isOscuro = oscuroPref
+                    )
                 }
             }
         }

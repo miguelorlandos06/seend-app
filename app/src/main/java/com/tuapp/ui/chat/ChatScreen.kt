@@ -24,7 +24,11 @@ import coil.compose.AsyncImage
 import com.tuapp.ui.theme.Fondo
 
 @Composable
-fun ChatScreen(vm: ChatViewModel) {
+fun ChatScreen(
+    vm: ChatViewModel,
+    onToggleTema: (Boolean) -> Unit,
+    isOscuro: Boolean
+) {
     LaunchedEffect(Unit) { vm.iniciar() }
     val s by vm.ui.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
@@ -62,7 +66,9 @@ fun ChatScreen(vm: ChatViewModel) {
             s = s,
             onCerrar = { vm.cerrarMiPerfil() },
             onGuardar = { nombre, bio -> vm.guardarPerfil(nombre, bio) },
-            onCambiarAvatar = { uri -> vm.cambiarAvatar(ctx, uri) }
+            onCambiarAvatar = { uri -> vm.cambiarAvatar(ctx, uri) },
+            onToggleTema = onToggleTema,
+            isOscuro = isOscuro
         )
     }
 
