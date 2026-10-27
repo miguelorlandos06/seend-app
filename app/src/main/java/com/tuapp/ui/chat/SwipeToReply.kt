@@ -1,5 +1,8 @@
 package com.tuapp.ui.chat
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -19,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.tuapp.ui.theme.Azul
-import com.tuapp.ui.theme.TextoSuave
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -34,14 +36,14 @@ fun SwipeToReplyContainer(
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     
-    var offsetX by remember { mutableFloatStateOf(0f) }
+    val offsetX = remember { Animatable(0f) }
     var activado by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxWidth()) {
         // Icono de fondo
         Box(
             Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
-                .alpha((offsetX / umbralPx).coerceIn(0f, 1f))
+                .alpha((offsetX.value / umbralPx).coerceIn(0f, 1f))
         ) {
             Box(Modifier.size(32.dp).background(Azul, CircleShape), contentAlignment = Alignment.Center) {
                 Icon(Icons.AutoMirrored.Filled.Reply, null, tint = Color.White, modifier = Modifier.size(18.dp))
@@ -50,34 +52,47 @@ fun SwipeToReplyContainer(
 
         Box(
             Modifier
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
-                        onDragStart = { offsetX = 0f; activado = false },
+                        onDragStart = { 
+                            activado = false 
+                        },
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
-                            offsetX = (offsetX + dragAmount).coerceIn(0f, maxPx)
-                            val ahora = offsetX >= umbralPx
-                            if (ahora != activado) {
-                                activado = ahora
-                                if (ahora) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            scope.launch {
+                                val nuevo = (offsetX.value + dragAmount).coerceIn(0f, maxPx)
+                                offsetX.snapTo(nuevo)
+                                val ahora = nuevo >= umbralPx
+                                if (ahora != activado) {
+                                    activado = ahora
+                                    if (ahora) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
                             }
                         },
                         onDragEnd = {
                             if (activado) onReply()
                             activado = false
                             scope.launch {
-                                androidx.compose.animation.core.animate(offsetX, 0f, androidx.compose.animation.core.spring(0.6f, 400f)) { v, _ ->
-                                    offsetX = v
-                                }
+                                offsetX.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                )
                             }
                         },
                         onDragCancel = {
                             activado = false
                             scope.launch {
-                                androidx.compose.animation.core.animate(offsetX, 0f, androidx.compose.animation.core.spring(0.6f, 400f)) { v, _ ->
-                                    offsetX = v
-                                }
+                                offsetX.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                )
                             }
                         }
                     )
