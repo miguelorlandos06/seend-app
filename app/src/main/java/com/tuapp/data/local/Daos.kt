@@ -41,3 +41,13 @@ interface UsuarioDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun reemplazarTodos(usuarios: List<UsuarioEntity>)
 }
+
+@Dao
+interface PendienteDao {
+    @Query("SELECT * FROM pendientes ORDER BY ts ASC")
+    suspend fun todos(): List<PendienteEntity>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun encolar(p: PendienteEntity)
+    @Query("DELETE FROM pendientes WHERE idLocal = :id")
+    suspend fun borrar(id: String)
+}

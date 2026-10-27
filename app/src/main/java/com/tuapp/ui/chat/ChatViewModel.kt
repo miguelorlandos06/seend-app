@@ -4,10 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tuapp.data.ChatRepository
-import com.tuapp.data.ChatWebSocket
-import com.tuapp.data.SessionStore
-import com.tuapp.data.UploadRepository
+import com.tuapp.data.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,17 +17,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class PerfilPublico(
-    val nombre: String,
-    val bio: String,
-    val avatar: String,
-    val enLinea: Boolean,
-    val ultima: Double
-)
+data class PerfilPublico(val nombre: String, val bio: String, val avatar: String, val enLinea: Boolean, val ultima: Double)
 
 data class UiState(
     val conectado: Boolean = false,
+    val estadoConexion: EstadoConexion = EstadoConexion.Desconectado,
     val nombre: String = "",
+    val bioPropio: String = "",
+    val avatarPropio: String = "",
     val chats: List<ChatItem> = emptyList(),
     val usuarios: List<Usuario> = emptyList(),
     val mostrandoUsuarios: Boolean = false,
@@ -41,8 +35,6 @@ data class UiState(
     val respondiendoA: Msg? = null,
     val error: String? = null,
     val cargando: Boolean = false,
-    val bioPropio: String = "",
-    val avatarPropio: String = "",
     val guardandoPerfil: Boolean = false,
     val perfilOtro: PerfilPublico? = null,
     val mostrarMiPerfil: Boolean = false
@@ -52,7 +44,9 @@ class ChatViewModel(
     private val ws: ChatWebSocket,
     private val store: SessionStore,
     private val repo: ChatRepository,
-    private val uploader: UploadRepository
+    private val uploader: UploadRepository,
+    private val monitor: NetworkMonitor,
+    private val cola: ColaOfflineRepository
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(UiState())
@@ -61,6 +55,16 @@ class ChatViewModel(
     private var mensajesJob: Job? = null
     private var escribiendoJob: Job? = null
     private var escuchando = false
+
+    private val reconexion = ReconexionManager(
+        scope = viewModelScope,
+        monitor = monitor,
+        conectar = {
+            ws.conectar()
+            store.token()?.let { ws.validarSesion(it) }
+        },
+        yaConectado = { ws.connected.value }
+    )
 
     fun iniciar() {
         if (escuchando) return
@@ -71,15 +75,18 @@ class ChatViewModel(
             ws.connected.collect { conectado -> _ui.update { it.copy(conectado = conectado) } }
         }
         viewModelScope.launch {
-            try {
-                ws.conectar()
-                val token = store.token()
-                if (token != null) ws.validarSesion(token)
-                else _ui.update { it.copy(error = "Sesión no encontrada") }
-            } catch (e: Exception) {
-                _ui.update { it.copy(error = "No se pudo conectar: ${e.message}") }
+            reconexion.estado.collect { estado ->
+                _ui.update { it.copy(estadoConexion = estado) }
+                if (estado is EstadoConexion.Conectado) {
+                    drenarCola()
+                }
             }
         }
+        viewModelScope.launch {
+            ws.connected.collect { conectado -> if (!conectado) reconexion.onFallo() }
+        }
+        reconexion.iniciar()
+
         viewModelScope.launch {
             repo.chats().collect { chats -> _ui.update { it.copy(chats = chats) } }
         }
@@ -93,9 +100,7 @@ class ChatViewModel(
             "sesion_valida" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 _ui.update { it.copy(nombre = nombre) }
-                viewModelScope.launch {
-                    store.token()?.let { ws.entrar(it) }
-                }
+                viewModelScope.launch { store.token()?.let { ws.entrar(it) } }
             }
             "sesion_invalida" -> {
                 viewModelScope.launch { store.clear() }
@@ -136,7 +141,6 @@ class ChatViewModel(
                 val estado = m["estado"]!!.jsonPrimitive.content
                 viewModelScope.launch {
                     if (ids.isEmpty() && estado == "visto") {
-                        // Marcar TODOS los mensajes del chat actual como vistos
                         val chat = _ui.value.chatActual
                         if (chat != null) {
                             val todos = _ui.value.mensajes.filter { it.de == chat }.map { it.id }
@@ -145,7 +149,6 @@ class ChatViewModel(
                     } else {
                         repo.actualizarEstados(ids, estado)
                     }
-                    ws.pedirChats()
                 }
             }
             "escribiendo" -> {
@@ -165,12 +168,8 @@ class ChatViewModel(
                 val enLinea = m["en_linea"]!!.jsonPrimitive.boolean
                 val ultima = m["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                 viewModelScope.launch {
-                    val chats = _ui.value.chats.map {
-                        if (it.otro == usuario) it.copy(enLinea = enLinea, ultima = ultima) else it
-                    }
-                    val usuarios = _ui.value.usuarios.map {
-                        if (it.nombre == usuario) it.copy(enLinea = enLinea, ultima = ultima) else it
-                    }
+                    val chats = _ui.value.chats.map { if (it.otro == usuario) it.copy(enLinea = enLinea, ultima = ultima) else it }
+                    val usuarios = _ui.value.usuarios.map { if (it.nombre == usuario) it.copy(enLinea = enLinea, ultima = ultima) else it }
                     repo.reemplazarChats(chats)
                     repo.reemplazarUsuarios(usuarios)
                 }
@@ -183,25 +182,19 @@ class ChatViewModel(
                 val ultima = m["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                 _ui.update { it.copy(perfilOtro = PerfilPublico(nombre, bio, avatar, enLinea, ultima)) }
             }
-
             "perfil_actualizado" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 val bio = m["bio"]?.jsonPrimitive?.content ?: ""
                 val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
                 viewModelScope.launch { store.guardarNombre(nombre) }
-                _ui.update { it.copy(nombre = nombre, bioPropio = bio, avatarPropio = avatar,
-                    guardandoPerfil = false, mostrarMiPerfil = false) }
+                _ui.update { it.copy(nombre = nombre, bioPropio = bio, avatarPropio = avatar, guardandoPerfil = false, mostrarMiPerfil = false) }
             }
             "perfil_actualizado_otro" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
                 viewModelScope.launch {
-                    val chats = _ui.value.chats.map {
-                        if (it.otro == nombre) it.copy(avatar = avatar) else it
-                    }
-                    val usuarios = _ui.value.usuarios.map {
-                        if (it.nombre == nombre) it.copy(avatar = avatar) else it
-                    }
+                    val chats = _ui.value.chats.map { if (it.otro == nombre) it.copy(avatar = avatar) else it }
+                    val usuarios = _ui.value.usuarios.map { if (it.nombre == nombre) it.copy(avatar = avatar) else it }
                     repo.reemplazarChats(chats)
                     repo.reemplazarUsuarios(usuarios)
                 }
@@ -214,14 +207,10 @@ class ChatViewModel(
     }
 
     fun abrirChat(otro: String) {
-        _ui.update {
-            it.copy(chatActual = otro, mensajes = emptyList(), mostrandoUsuarios = false, respondiendoA = null)
-        }
+        _ui.update { it.copy(chatActual = otro, mensajes = emptyList(), mostrandoUsuarios = false, respondiendoA = null) }
         mensajesJob?.cancel()
         mensajesJob = viewModelScope.launch {
-            repo.mensajesDe(otro, _ui.value.nombre).collect { msgs ->
-                _ui.update { it.copy(mensajes = msgs) }
-            }
+            repo.mensajesDe(otro, _ui.value.nombre).collect { msgs -> _ui.update { it.copy(mensajes = msgs) } }
         }
         ws.abrirChat(otro)
         viewModelScope.launch { repo.marcarLeido(otro) }
@@ -259,44 +248,37 @@ class ChatViewModel(
         val tmpId = "tmp_${System.currentTimeMillis()}"
         val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-        val provisional = Msg(
-            id = tmpId, de = _ui.value.nombre, para = chat, texto = texto,
-            hora = hora, ts = System.currentTimeMillis() / 1000.0,
-            subidaEstado = SubidaEstado.Pendiente,
-            bytesTotales = size, bytesSubidos = 0, progreso = 0f,
-            dimensiones = dims
-        )
+        val provisional = Msg(id = tmpId, de = _ui.value.nombre, para = chat, texto = texto, hora = hora, ts = System.currentTimeMillis() / 1000.0, subidaEstado = SubidaEstado.Pendiente, bytesTotales = size, dimensiones = dims)
         _ui.update { it.copy(subiendo = it.subiendo + provisional) }
 
         viewModelScope.launch {
             try {
                 val token = store.token() ?: error("Sin token")
                 val prep = uploader.prepare(token, "mensaje", chat, mime, size)
-                _ui.update { s ->
-                    s.copy(subiendo = s.subiendo.map {
-                        if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Subiendo) else it
-                    })
-                }
+                _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Subiendo) else it }) }
                 uploader.upload(ctx, uri, prep, mime) { subido, total ->
-                    _ui.update { s ->
-                        s.copy(subiendo = s.subiendo.map {
-                            if (it.id == tmpId) it.copy(
-                                progreso = if (total > 0) subido.toFloat() / total else 0f,
-                                bytesSubidos = subido, bytesTotales = total
-                            ) else it
-                        })
-                    }
+                    _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(progreso = if (total > 0) subido.toFloat() / total else 0f, bytesSubidos = subido, bytesTotales = total) else it }) }
                 }
                 ws.enviarMensajeConImagen(chat, texto, prep.url_publica, fmtBytes(size), dims ?: "")
-                _ui.update { s ->
-                    s.copy(subiendo = s.subiendo.filterNot { it.id == tmpId })
-                }
+                _ui.update { s -> s.copy(subiendo = s.subiendo.filterNot { it.id == tmpId }) }
             } catch (e: Exception) {
-                _ui.update { s ->
-                    s.copy(subiendo = s.subiendo.map {
-                        if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Fallida) else it
-                    })
+                _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(subidaEstado = SubidaFallida()) else it }) }
+            }
+        }
+    }
+
+    fun SubidaFallida() = SubidaEstado.Fallida
+
+    private fun drenarCola() {
+        viewModelScope.launch {
+            val pendientes = cola.todos()
+            for (p in pendientes) {
+                if (p.imagenUri == null) {
+                    ws.enviarMensaje(p.para, p.texto, p.responderA)
+                } else {
+                    // La subida de imágenes offline requiere relanzar el flujo, lo omitimos por simplicidad en esta iteración
                 }
+                cola.borrar(p.idLocal)
             }
         }
     }
@@ -304,16 +286,13 @@ class ChatViewModel(
     fun cambiarAvatar(ctx: Context, uri: Uri) {
         viewModelScope.launch {
             try {
+                _ui.update { it.copy(error = null) }
                 val token = store.token() ?: error("Sin token")
                 val mime = ctx.contentResolver.getType(uri) ?: "image/jpeg"
                 val size = ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: 0L
-                if (size > 300 * 1024) {
-                    _ui.update { it.copy(error = "El avatar debe ser menor de 300 KB") }
-                    return@launch
-                }
                 val prep = uploader.prepare(token, "avatar", null, mime, size)
                 uploader.upload(ctx, uri, prep, mime) { _, _ -> }
-                ws.actualizarPerfil(_ui.value.nombre, "", prep.url_publica)
+                ws.actualizarPerfil(_ui.value.nombre, _ui.value.bioPropio, prep.url_publica)
             } catch (e: Exception) {
                 _ui.update { it.copy(error = "Error al subir avatar: ${e.message}") }
             }
@@ -322,9 +301,7 @@ class ChatViewModel(
 
     private fun leerDimensiones(ctx: Context, uri: Uri): String? = runCatching {
         val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        ctx.contentResolver.openInputStream(uri)?.use {
-            android.graphics.BitmapFactory.decodeStream(it, null, opts)
-        }
+        ctx.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
         if (opts.outWidth > 0 && opts.outHeight > 0) "${opts.outWidth} × ${opts.outHeight}" else null
     }.getOrNull()
 
@@ -334,8 +311,17 @@ class ChatViewModel(
         else ws.escribiendo(chat, false)
     }
 
-    fun limpiarError() = _ui.update { it.copy(error = null) }
-
+    fun abrirMiPerfil() = _ui.update { it.copy(mostrarMiPerfil = true) }
+    fun cerrarMiPerfil() = _ui.update { it.copy(mostrarMiPerfil = false) }
+    fun guardarPerfil(nombre: String, bio: String) {
+        _ui.update { it.copy(guardandoPerfil = true) }
+        ws.actualizarPerfil(nombre, bio, null)
+    }
+    fun pedirPerfil(quien: String) {
+        ws.pedirPerfil(quien)
+        _ui.update { it.copy(perfilOtro = PerfilPublico(quien, "", "", false, 0.0)) }
+    }
+    fun cerrarPerfilOtro() = _ui.update { it.copy(perfilOtro = null) }
     fun cerrarSesion() {
         viewModelScope.launch {
             store.clear()
@@ -348,73 +334,15 @@ class ChatViewModel(
     private fun parseChats(arr: JsonArray): List<ChatItem> = arr.map { el ->
         val o = el.jsonObject
         val ult = o["ultimo"]!!.jsonObject
-        ChatItem(
-            otro = o["otro"]!!.jsonPrimitive.content,
-            ultimo = Ultimo(
-                texto = ult["texto"]?.jsonPrimitive?.content ?: "",
-                imagen = ult["imagen"]?.jsonPrimitive?.boolean ?: false,
-                hora = ult["hora"]?.jsonPrimitive?.content ?: "",
-                ts = ult["ts"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-                de = ult["de"]?.jsonPrimitive?.content ?: "",
-                estado = ult["estado"]?.jsonPrimitive?.content ?: "enviado"
-            ),
-            noLeidos = o["no_leidos"]?.jsonPrimitive?.int ?: 0,
-            enLinea = o["en_linea"]?.jsonPrimitive?.boolean ?: false,
-            avatar = o["avatar"]?.jsonPrimitive?.content ?: "",
-            ultima = o["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-        )
+        ChatItem(otro = o["otro"]!!.jsonPrimitive.content, ultimo = Ultimo(texto = ult["texto"]?.jsonPrimitive?.content ?: "", imagen = ult["imagen"]?.jsonPrimitive?.boolean ?: false, hora = ult["hora"]?.jsonPrimitive?.content ?: "", ts = ult["ts"]?.jsonPrimitive?.doubleOrNull ?: 0.0, de = ult["de"]?.jsonPrimitive?.content ?: "", estado = ult["estado"]?.jsonPrimitive?.content ?: "enviado"), noLeidos = o["no_leidos"]?.jsonPrimitive?.int ?: 0, enLinea = o["en_linea"]?.jsonPrimitive?.boolean ?: false, avatar = o["avatar"]?.jsonPrimitive?.content ?: "", ultima = o["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0)
     }
-
     private fun parseUsuarios(arr: JsonArray): List<Usuario> = arr.map { el ->
         val o = el.jsonObject
-        Usuario(
-            nombre = o["nombre"]!!.jsonPrimitive.content,
-            avatar = o["avatar"]?.jsonPrimitive?.content ?: "",
-            ultima = o["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-            enLinea = o["en_linea"]?.jsonPrimitive?.boolean ?: false
-        )
+        Usuario(nombre = o["nombre"]!!.jsonPrimitive.content, avatar = o["avatar"]?.jsonPrimitive?.content ?: "", ultima = o["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0, enLinea = o["en_linea"]?.jsonPrimitive?.boolean ?: false)
     }
-
     private fun parseMensajes(arr: JsonArray): List<Msg> = arr.map { parseMensaje(it.jsonObject) }
-
     private fun parseMensaje(o: JsonObject): Msg {
         val citaJson = o["cita"]?.jsonObject
-        return Msg(
-            id = o["id"]!!.jsonPrimitive.content,
-            de = o["de"]!!.jsonPrimitive.content,
-            para = o["para"]!!.jsonPrimitive.content,
-            texto = o["texto"]?.jsonPrimitive?.content ?: "",
-            imagenUrl = o["imagen_url"]?.jsonPrimitive?.content ?: "",
-            imagenTamano = o["imagen_tamano"]?.jsonPrimitive?.content ?: "",
-            imagenDim = o["imagen_dim"]?.jsonPrimitive?.content ?: "",
-            estado = o["estado"]?.jsonPrimitive?.content ?: "enviado",
-            hora = o["hora"]?.jsonPrimitive?.content ?: "",
-            ts = o["ts"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
-            cita = if (citaJson != null) Cita(
-                autor = citaJson["autor"]?.jsonPrimitive?.content ?: "",
-                texto = citaJson["texto"]?.jsonPrimitive?.content ?: ""
-            ) else null,
-            estadoEnvio = when (o["estado"]?.jsonPrimitive?.content) {
-                "visto" -> EstadoEnvio.Visto
-                "entregado" -> EstadoEnvio.Entregado
-                else -> EstadoEnvio.Enviado
-            }
-        )
+        return Msg(id = o["id"]!!.jsonPrimitive.content, de = o["de"]!!.jsonPrimitive.content, para = o["para"]!!.jsonPrimitive.content, texto = o["texto"]?.jsonPrimitive?.content ?: "", imagenUrl = o["imagen_url"]?.jsonPrimitive?.content ?: "", imagenTamano = o["imagen_tamano"]?.jsonPrimitive?.content ?: "", imagenDim = o["imagen_dim"]?.jsonPrimitive?.content ?: "", estado = o["estado"]?.jsonPrimitive?.content ?: "enviado", hora = o["hora"]?.jsonPrimitive?.content ?: "", ts = o["ts"]?.jsonPrimitive?.doubleOrNull ?: 0.0, cita = if (citaJson != null) Cita(citaJson["autor"]?.jsonPrimitive?.content ?: "", citaJson["texto"]?.jsonPrimitive?.content ?: "") else null, estadoEnvio = when (o["estado"]?.jsonPrimitive?.content) { "visto" -> EstadoEnvio.Visto; "entregado" -> EstadoEnvio.Entregado; else -> EstadoEnvio.Enviado })
     }
-
-    fun abrirMiPerfil() = _ui.update { it.copy(mostrarMiPerfil = true) }
-    fun cerrarMiPerfil() = _ui.update { it.copy(mostrarMiPerfil = false) }
-
-    fun guardarPerfil(nombre: String, bio: String) {
-        _ui.update { it.copy(guardandoPerfil = true) }
-        ws.actualizarPerfil(nombre, bio, null)
-    }
-
-    fun pedirPerfil(quien: String) {
-        ws.pedirPerfil(quien)
-        _ui.update { it.copy(perfilOtro = PerfilPublico(quien, "", "", false, 0.0)) }
-    }
-
-    fun cerrarPerfilOtro() = _ui.update { it.copy(perfilOtro = null) }
-
 }

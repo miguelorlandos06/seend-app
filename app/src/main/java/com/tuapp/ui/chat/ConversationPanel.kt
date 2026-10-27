@@ -170,6 +170,14 @@ fun ConversationPanel(
 }
 
 private fun estadoHeader(s: UiState, otro: String): Pair<String, Color> {
+    // 1. Prioridad: Estado de la conexión (Reconectando/Sin conexión)
+    when (s.estadoConexion) {
+        is com.tuapp.data.EstadoConexion.Conectando -> return "Reconectando..." to Color(0xFFB45309)
+        is com.tuapp.data.EstadoConexion.Error -> return "Sin conexión" to Color(0xFFB91C1C)
+        is com.tuapp.data.EstadoConexion.Desconectado -> return "Desconectado" to Color(0xFFB91C1C)
+        else -> {} // Conectado, seguir con el estado del usuario
+    }
+    // 2. Estado normal del usuario
     if (s.escribiendo[otro] == true) return "Escribiendo..." to Azul
     val chat = s.chats.find { it.otro == otro }
     val usuario = s.usuarios.find { it.nombre == otro }

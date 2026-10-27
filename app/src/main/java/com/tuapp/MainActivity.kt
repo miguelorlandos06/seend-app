@@ -32,24 +32,17 @@ class MainActivity : ComponentActivity() {
 
             AppTheme(oscuro = oscuroPref) {
                 if (!autenticado) {
-                    AuthScreen(
-                        ws = app.ws,
-                        store = app.sessionStore,
-                        onAutenticado = { autenticado = true }
-                    )
+                    AuthScreen(app.ws, app.sessionStore, onAutenticado = { autenticado = true })
                 } else {
                     val vm: ChatViewModel = viewModel(factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
                             @Suppress("UNCHECKED_CAST")
-                            return ChatViewModel(app.ws, app.sessionStore, app.repo, app.uploader) as T
+                            return ChatViewModel(app.ws, app.sessionStore, app.repo, app.uploader, app.monitor, app.cola) as T
                         }
                     })
                     ChatScreen(
                         vm = vm,
-                        onToggleTema = { oscuro -> 
-                            // Usar coroutine para llamar a la función suspend
-                            scope.launch { app.temaPrefs.set(oscuro) }
-                        },
+                        onToggleTema = { oscuro -> scope.launch { app.temaPrefs.set(oscuro) } },
                         isOscuro = oscuroPref
                     )
                 }

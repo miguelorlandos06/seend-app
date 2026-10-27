@@ -42,3 +42,16 @@ data class UsuarioEntity(
     val ultima: Double,
     val enLinea: Boolean
 )
+
+@Entity(tableName = "pendientes")
+data class PendienteEntity(
+    @PrimaryKey val idLocal: String,
+    val para: String,
+    val texto: String,
+    val imagenUri: String?,
+    val imagenDim: String?,
+    val imagenTamano: String?,
+    val responderA: String?,
+    val ts: Double,
+    val intentos: Int = 0
+)
