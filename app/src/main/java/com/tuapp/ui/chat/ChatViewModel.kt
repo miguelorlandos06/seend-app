@@ -135,7 +135,16 @@ class ChatViewModel(
                 val ids = m["ids"]!!.jsonArray.map { it.jsonPrimitive.content }
                 val estado = m["estado"]!!.jsonPrimitive.content
                 viewModelScope.launch {
-                    repo.actualizarEstados(ids, estado)
+                    if (ids.isEmpty() && estado == "visto") {
+                        // Marcar TODOS los mensajes del chat actual como vistos
+                        val chat = _ui.value.chatActual
+                        if (chat != null) {
+                            val todos = _ui.value.mensajes.filter { it.de == chat }.map { it.id }
+                            if (todos.isNotEmpty()) repo.actualizarEstados(todos, "visto")
+                        }
+                    } else {
+                        repo.actualizarEstados(ids, estado)
+                    }
                     ws.pedirChats()
                 }
             }
