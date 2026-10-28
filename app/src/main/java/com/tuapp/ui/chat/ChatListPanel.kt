@@ -1,5 +1,6 @@
 package com.tuapp.ui.chat
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,11 +17,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tuapp.R
 import com.tuapp.ui.components.Avatar
 import com.tuapp.ui.theme.*
 
@@ -84,8 +88,31 @@ fun ChatListPanel(
 @Composable
 private fun ListaChats(s: UiState, onAbrirChat: (String) -> Unit) {
     if (s.chats.isEmpty()) {
-        Box(Modifier.fillMaxSize(), Alignment.Center) {
-            Text("No tienes conversaciones.\nPulsa el botón + para empezar.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_empty_chats),
+                contentDescription = "Sin conversaciones",
+                modifier = Modifier.size(200.dp)
+            )
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Aún no tienes conversaciones",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Pulsa el botón + para buscar a alguien y empezar a chatear.",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp
+            )
         }
         return
     }

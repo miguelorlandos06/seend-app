@@ -19,23 +19,12 @@ interface MensajeDao {
 
     @Query("UPDATE mensajes SET estado = :estado WHERE id IN (:ids)")
     suspend fun actualizarEstados(ids: List<String>, estado: String)
-    
-    @Query("DELETE FROM mensajes WHERE id = :id")
-    suspend fun borrarPorId(id: String)
 
     @Query("UPDATE mensajes SET estado = 'visto' WHERE de = :otro AND para = :yo")
     suspend fun marcarLeido(otro: String, yo: String)
 
-    @Query("DELETE FROM mensajes WHERE convKey = :convKey")
-    suspend fun borrarConversacion(convKey: String)
-}
-
-@Dao
-interface ChatDao {
-    @Query("SELECT * FROM chats ORDER BY ts DESC")
-    fun observarChats(): Flow<List<ChatEntity>>
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun reemplazarTodos(chats: List<ChatEntity>)
+    @Query("DELETE FROM mensajes WHERE id = :id")
+    suspend fun borrarPorId(id: String)
 }
 
 @Dao
@@ -44,8 +33,17 @@ interface UsuarioDao {
     fun observarUsuarios(): Flow<List<UsuarioEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertar(usuario: UsuarioEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun reemplazarTodos(usuarios: List<UsuarioEntity>)
-    
+
+    @Query("UPDATE usuarios SET avatar = :avatar WHERE nombre = :nombre")
+    suspend fun actualizarAvatar(nombre: String, avatar: String)
+
+    @Query("UPDATE usuarios SET enLinea = :enLinea, ultima = :ultima WHERE nombre = :nombre")
+    suspend fun actualizarPresencia(nombre: String, enLinea: Boolean, ultima: Double)
+
     @Query("SELECT * FROM usuarios WHERE nombre = :nombre")
     suspend fun buscarPorNombre(nombre: String): UsuarioEntity?
 }

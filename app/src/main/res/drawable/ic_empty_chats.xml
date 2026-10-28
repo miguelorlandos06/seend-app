@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Globo grande (Azul, a la izquierda) -->
+    <path
+        android:fillColor="#DBEAFE"
+        android:pathData="M40,30 
+            C 20,30 10,50 10,75 
+            C 10,100 20,120 40,130 
+            C 35,140 30,150 20,155 
+            C 35,155 55,145 70,135 
+            C 85,145 105,145 120,135 
+            C 140,125 150,105 150,80 
+            C 150,50 130,30 100,30 
+            C 80,30 60,30 40,30 Z" />
+    
+    <!-- Puntos del globo grande -->
+    <path
+        android:fillColor="#60A5FA"
+        android:pathData="M 50 80 A 6 6 0 1 0 62 80 A 6 6 0 1 0 50 80 Z" />
+    <path
+        android:fillColor="#60A5FA"
+        android:pathData="M 75 80 A 6 6 0 1 0 87 80 A 6 6 0 1 0 75 80 Z" />
+    <path
+        android:fillColor="#60A5FA"
+        android:pathData="M 100 80 A 6 6 0 1 0 112 80 A 6 6 0 1 0 100 80 Z" />
+
+    <!-- Globo pequeño (Blanco, a la derecha) -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:strokeColor="#E2E8F0"
+        android:strokeWidth="1.5"
+        android:pathData="M90,80 
+            C 75,80 65,95 65,115 
+            C 65,135 75,150 90,155 
+            C 95,165 100,175 110,180 
+            C 105,170 105,160 110,150 
+            C 125,150 140,135 140,115 
+            C 140,95 125,80 110,80 
+            C 100,80 95,80 90,80 Z" />
+
+    <!-- Puntos del globo pequeño -->
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M 85 115 A 5 5 0 1 0 95 115 A 5 5 0 1 0 85 115 Z" />
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M 105 115 A 5 5 0 1 0 115 115 A 5 5 0 1 0 105 115 Z" />
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M 125 115 A 5 5 0 1 0 135 115 A 5 5 0 1 0 125 115 Z" />
+
+</vector>

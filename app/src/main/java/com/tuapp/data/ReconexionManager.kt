@@ -60,11 +60,14 @@ class ReconexionManager(
     fun forzarReconexion() {
         intentos = 0
         job?.cancel()
+        job = null
         iniciar()
     }
 
     fun onFallo() {
         _estado.value = EstadoConexion.Desconectado
+        job?.cancel()
+        job = null
         iniciar()
     }
 
