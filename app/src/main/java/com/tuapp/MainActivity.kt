@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,24 +21,27 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as App
         setContent {
-            var autenticado by rememberSaveable { mutableStateOf(false) }
+            var nombreInicial by remember { mutableStateOf("") }
+            LaunchedEffect(Unit) {
+                nombreInicial = app.sessionStore.nombre() ?: ""
+            }
+
             val oscuroPref by app.temaPrefs.oscuro.collectAsState(initial = isSystemInDarkTheme())
             val scope = rememberCoroutineScope()
 
-            LaunchedEffect(Unit) {
-                if (app.sessionStore.token() != null) autenticado = true
-            }
+            val vm: ChatViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    @Suppress("UNCHECKED_CAST")
+                    return ChatViewModel(app.ws, app.sessionStore, app.repo, app.uploader, app.monitor, app.cola, nombreInicial) as T
+                }
+            })
+
+            val s by vm.ui.collectAsState()
 
             AppTheme(oscuro = oscuroPref) {
-                if (!autenticado) {
-                    AuthScreen(app.ws, app.sessionStore, onAutenticado = { autenticado = true })
+                if (!s.autenticado && nombreInicial.isBlank()) {
+                    AuthScreen(app.ws, app.sessionStore, onAutenticado = { vm.marcarAutenticado(it) })
                 } else {
-                    val vm: ChatViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                            @Suppress("UNCHECKED_CAST")
-                            return ChatViewModel(app.ws, app.sessionStore, app.repo, app.uploader, app.monitor, app.cola) as T
-                        }
-                    })
                     ChatScreen(
                         vm = vm,
                         onToggleTema = { oscuro -> scope.launch { app.temaPrefs.set(oscuro) } },

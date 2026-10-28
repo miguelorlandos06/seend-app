@@ -46,11 +46,11 @@ fun ChatListPanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (s.mostrandoUsuarios) {
-                    IconButton(onClick = onVolverHome) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Azul) }
+                    IconButton(onClick = onVolverHome) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = MaterialTheme.colorScheme.primary) }
                 }
                 
                 if (s.mostrandoUsuarios) {
-                    Text("Usuarios", modifier = Modifier.weight(1f), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
+                    Text("Usuarios", modifier = Modifier.weight(1f), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
                 } else {
                     TituloReactivo(estado = s.estadoConexion, modifier = Modifier.weight(1f))
                 }
@@ -60,16 +60,17 @@ fun ChatListPanel(
                         Modifier.clip(RoundedCornerShape(20.dp)).clickable { onAbrirMiPerfil() }.padding(4.dp, 4.dp, 8.dp, 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Avatar("", s.nombre, 36.dp)
+                        // Usar el avatar propio real
+                        Avatar(s.avatarPropio, s.nombre, 36.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text(s.nombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 90.dp))
+                        Text(s.nombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 90.dp))
                     }
                 }
             }
         },
         floatingActionButton = {
             if (!s.mostrandoUsuarios) {
-                FloatingActionButton(onClick = onMostrarUsuarios, containerColor = Azul, contentColor = Color.White, shape = CircleShape) {
+                FloatingActionButton(onClick = onMostrarUsuarios, containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White, shape = CircleShape) {
                     Icon(Icons.Default.Add, contentDescription = "Nuevo chat")
                 }
             }
@@ -103,13 +104,13 @@ private fun ListaChats(s: UiState, onAbrirChat: (String) -> Unit) {
                 "Aún no tienes conversaciones",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Pulsa el botón + para buscar a alguien y empezar a chatear.",
                 fontSize = 14.sp,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
             )
@@ -119,7 +120,7 @@ private fun ListaChats(s: UiState, onAbrirChat: (String) -> Unit) {
     LazyColumn(Modifier.fillMaxSize()) {
         items(s.chats, key = { it.otro }) { c ->
             ChatRow(c = c, escribiendo = s.escribiendo[c.otro] == true, activo = s.chatActual == c.otro, yo = s.nombre, onClick = { onAbrirChat(c.otro) })
-            Divider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
         }
     }
 }
@@ -127,15 +128,15 @@ private fun ListaChats(s: UiState, onAbrirChat: (String) -> Unit) {
 @Composable
 private fun ChatRow(c: ChatItem, escribiendo: Boolean, activo: Boolean, yo: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(if (activo) AzulClaro else Color.Transparent).clickable { onClick() }.padding(horizontal = 18.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().background(if (activo) MaterialTheme.colorScheme.primaryContainer else Color.Transparent).clickable { onClick() }.padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Avatar(c.avatar, c.otro, 48.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(c.otro, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(c.ultimo.hora, fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                Text(c.otro, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.ultimo.hora, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -145,7 +146,7 @@ private fun ChatRow(c: ChatItem, escribiendo: Boolean, activo: Boolean, yo: Stri
                     else -> (if (c.ultimo.de == yo) "Tú: " else "") + c.ultimo.texto
                 }
                 Text(
-                    preview, Modifier.weight(1f), fontSize = 14.5.sp, color = Color.Black,
+                    preview, Modifier.weight(1f), fontSize = 14.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontStyle = if (escribiendo) FontStyle.Italic else FontStyle.Normal,
                     fontWeight = if (escribiendo) FontWeight.Medium else FontWeight.Normal,
                     maxLines = 1, overflow = TextOverflow.Ellipsis
@@ -153,7 +154,7 @@ private fun ChatRow(c: ChatItem, escribiendo: Boolean, activo: Boolean, yo: Stri
                 if (c.ultimo.de == yo && !escribiendo) { Spacer(Modifier.width(4.dp)); CheckIcon(c.ultimo.estado) }
                 if (c.noLeidos > 0) {
                     Spacer(Modifier.width(6.dp))
-                    Box(Modifier.background(Azul, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                    Box(Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp)) {
                         Text("${c.noLeidos}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -186,7 +187,7 @@ private fun ListaUsuarios(s: UiState, onAbrirChat: (String) -> Unit) {
 
 @Composable
 private fun Separador(texto: String) {
-    Text(texto.uppercase(), Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 18.dp, vertical = 14.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black, letterSpacing = 0.8.sp)
+    Text(texto.uppercase(), Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 18.dp, vertical = 14.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, letterSpacing = 0.8.sp)
 }
 
 @Composable
@@ -195,10 +196,10 @@ private fun UsuarioRow(u: Usuario, onAbrirChat: (String) -> Unit) {
         Avatar(u.avatar, u.nombre, 44.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(u.nombre, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+            Text(u.nombre, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             val infoTexto = if (u.bio.isNotBlank()) u.bio else "¡Hola! Estoy usando Seend"
-            Text(infoTexto, fontSize = 14.sp, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(infoTexto, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
-    Divider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 }

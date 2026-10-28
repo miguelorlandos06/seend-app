@@ -16,6 +16,7 @@ import java.util.Locale
 data class PerfilPublico(val nombre: String, val bio: String, val avatar: String, val enLinea: Boolean, val ultima: Double)
 
 data class UiState(
+    val autenticado: Boolean = false,
     val conectado: Boolean = false,
     val estadoConexion: EstadoConexion = EstadoConexion.Desconectado,
     val nombre: String = "",
@@ -42,10 +43,11 @@ class ChatViewModel(
     private val repo: ChatRepository,
     private val uploader: UploadRepository,
     private val monitor: NetworkMonitor,
-    private val cola: ColaOfflineRepository
+    private val cola: ColaOfflineRepository,
+    private val nombreInicial: String
 ) : ViewModel() {
 
-    private val _ui = MutableStateFlow(UiState())
+    private val _ui = MutableStateFlow(UiState(nombre = nombreInicial, autenticado = nombreInicial.isNotBlank()))
     val ui: StateFlow<UiState> = _ui.asStateFlow()
 
     private var mensajesJob: Job? = null
@@ -69,7 +71,7 @@ class ChatViewModel(
             if (estado is EstadoConexion.Conectado) drenarCola()
         }}
         viewModelScope.launch { ws.connected.collect { if (!it) reconexion.onFallo() } }
-        
+
         reconexion.iniciar()
 
         viewModelScope.launch {
@@ -82,11 +84,15 @@ class ChatViewModel(
         viewModelScope.launch { repo.usuarios().collect { usuarios -> _ui.update { it.copy(usuarios = usuarios) } } }
     }
 
+    fun marcarAutenticado(nombre: String) {
+        _ui.update { it.copy(autenticado = true, nombre = nombre) }
+    }
+
     private fun manejarEvento(m: JsonObject) {
         when (m["tipo"]?.jsonPrimitive?.content) {
             "sesion_valida" -> {
                 val nombre = m["nombre"]?.jsonPrimitive?.content ?: return
-                _ui.update { it.copy(nombre = nombre) }
+                _ui.update { it.copy(nombre = nombre, autenticado = true) }
                 viewModelScope.launch { store.token()?.let { ws.entrar(it) } }
             }
             "sesion_invalida" -> {
@@ -96,16 +102,14 @@ class ChatViewModel(
             "conversacion" -> {
                 val msgsJson = m["mensajes"]?.jsonArray ?: return
                 val mensajes = msgsJson.map { parseMensaje(it.jsonObject) }
-                viewModelScope.launch { repo.guardarMensajes(mensajes) } // Guardar SIEMPRE
+                viewModelScope.launch { repo.guardarMensajes(mensajes) }
             }
             "mensaje" -> {
                 val msgObj = m["mensaje"]?.jsonObject ?: return
                 val msg = parseMensaje(msgObj)
                 val eco = m["eco"]?.jsonPrimitive?.booleanOrNull == true
-                
                 viewModelScope.launch {
                     if (eco) {
-                        // Buscar provisional por timestamp aproximado
                         val provisional = _ui.value.mensajes.find { it.id.startsWith("tmp_") && it.texto == msg.texto && kotlin.math.abs(it.ts - msg.ts) < 5.0 }
                         if (provisional != null) repo.borrarMensaje(provisional.id)
                     }
@@ -189,7 +193,7 @@ class ChatViewModel(
         val resp = _ui.value.respondiendoA?.id
         val tmpId = "tmp_${System.currentTimeMillis()}"
         val provisional = Msg(id = tmpId, de = _ui.value.nombre, para = chat, texto = t, hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), ts = System.currentTimeMillis() / 1000.0, estadoEnvio = if (ws.connected.value) EstadoEnvio.Enviando else EstadoEnvio.EnCola)
-        
+
         viewModelScope.launch {
             repo.guardarMensaje(provisional)
             if (!ws.connected.value) cola.encolar(chat, t, null, null, null, resp)
@@ -206,13 +210,12 @@ class ChatViewModel(
             val size = ctx.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: 0L
             val dims = leerDimensiones(ctx, uri)
             val tmpId = "tmp_${System.currentTimeMillis()}"
-            
-            // Decodificar en segundo plano para generar hash y evitar OOM
+
             val bitmap = try {
                 val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
                 ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
             } catch (e: Exception) { null }
-            
+
             val hash = try { if (bitmap != null) com.tuapp.ui.components.BlurHash.encode(bitmap, 4, 4) else "" } catch(e: Exception) { "" }
 
             val provisional = Msg(id = tmpId, de = _ui.value.nombre, para = chat, texto = texto, hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), ts = System.currentTimeMillis() / 1000.0, subidaEstado = SubidaEstado.Pendiente, bytesTotales = size, dimensiones = dims)
@@ -222,11 +225,11 @@ class ChatViewModel(
                 val token = store.token() ?: error("Sin token")
                 val prep = uploader.prepare(token, "mensaje", chat, mime, size)
                 withContext(Dispatchers.Main) { _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Subiendo) else it }) } }
-                
+
                 uploader.upload(ctx, uri, prep, mime) { subido, total ->
                     viewModelScope.launch(Dispatchers.Main) { _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(progreso = if (total > 0) subido.toFloat() / total else 0f, bytesSubidos = subido, bytesTotales = total) else it }) } }
                 }
-                
+
                 ws.enviarMensajeConImagen(chat, texto, prep.url_publica, fmtBytes(size), dims ?: "", hash)
                 withContext(Dispatchers.Main) { _ui.update { s -> s.copy(subiendo = s.subiendo.filterNot { it.id == tmpId }) } }
             } catch (e: Exception) {
@@ -241,7 +244,7 @@ class ChatViewModel(
             for (p in pendientes) {
                 if (p.imagenUri == null) {
                     ws.enviarMensaje(p.para, p.texto, p.responderA)
-                    cola.borrar(p.idLocal) // Solo borrar texto
+                    cola.borrar(p.idLocal)
                 }
             }
         }
