@@ -17,22 +17,6 @@ android {
         versionName = "1.0.0"
     }
 
-    signingConfigs {
-        create("release") {
-            // Busca el keystore en la ruta definida por GitHub Actions
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "seend-release.jks"
-            val ksFile = file(keystorePath)
-            
-            // Solo aplica la firma si el archivo existe
-            if (ksFile.exists()) {
-                storeFile = ksFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: "seend"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-            }
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -40,12 +24,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Asigna la firma al build de Release
-            signingConfig = signingConfigs.getByName("release")
+            // Usa la firma por defecto (Debug) para el Release
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
-            applicationIdSuffix = ".debug"
-            isMinifyEnabled = false
+            isDebuggable = true
         }
     }
 

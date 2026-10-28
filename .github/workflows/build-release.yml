@@ -24,11 +24,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Decode Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > seend-release.jks
-
-      # Generar el wrapper usando el Gradle del sistema en el runner
+      # Generar el wrapper por si acaso
       - name: Generate Gradle Wrapper
         run: gradle wrapper --gradle-version 8.7
 
@@ -36,11 +32,6 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Release APK
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/seend-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
       - name: Upload APK Artifact
@@ -55,6 +46,6 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           files: app/build/outputs/apk/release/*.apk
-          tag_name: v1.0.0
+          tag_name: v1.0.1
           draft: true
           prerelease: false
