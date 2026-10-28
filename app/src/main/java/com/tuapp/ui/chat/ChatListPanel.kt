@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,56 +35,39 @@ fun ChatListPanel(
     onAbrirMiPerfil: () -> Unit
 ) {
     Scaffold(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (s.mostrandoUsuarios) {
-                    IconButton(onClick = onVolverHome) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Azul)
-                    }
+                    IconButton(onClick = onVolverHome) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Azul) }
                 }
+                
                 if (s.mostrandoUsuarios) {
-                    Text("Usuarios", modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Usuarios", modifier = Modifier.weight(1f), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.Black)
                 } else {
                     TituloReactivo(estado = s.estadoConexion, modifier = Modifier.weight(1f))
                 }
+
                 if (!s.mostrandoUsuarios) {
                     Row(
-                        Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .clickable { onAbrirMiPerfil() }
-                            .padding(4.dp, 4.dp, 8.dp, 4.dp),
+                        Modifier.clip(RoundedCornerShape(20.dp)).clickable { onAbrirMiPerfil() }.padding(4.dp, 4.dp, 8.dp, 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Avatar("", s.nombre, 36.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            s.nombre,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 90.dp)
-                        )
+                        Text(s.nombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 90.dp))
                     }
                 }
             }
         },
         floatingActionButton = {
             if (!s.mostrandoUsuarios) {
-                FloatingActionButton(
-                    onClick = onMostrarUsuarios,
-                    containerColor = Azul,
-                    contentColor = Color.White,
-                    shape = CircleShape
-                ) {
+                FloatingActionButton(onClick = onMostrarUsuarios, containerColor = Azul, contentColor = Color.White, shape = CircleShape) {
                     Icon(Icons.Default.Add, contentDescription = "Nuevo chat")
                 }
             }
@@ -100,63 +85,32 @@ fun ChatListPanel(
 
 @Composable
 private fun ListaChats(s: UiState, onAbrirChat: (String) -> Unit) {
-    if (s.chats.isEmpty() && s.estadoConexion is com.tuapp.data.EstadoConexion.Conectando) {
-            com.tuapp.ui.components.SkeletonChats()
-            return
-        }
-        if (s.chats.isEmpty()) {
+    if (s.chats.isEmpty()) {
         Box(Modifier.fillMaxSize(), Alignment.Center) {
-            Text(
-                "No tienes conversaciones.\nPulsa el botón + para empezar.",
-                color = TextoSuave, fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
+            Text("No tienes conversaciones.\nPulsa el botón + para empezar.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
         }
         return
     }
     LazyColumn(Modifier.fillMaxSize()) {
         items(s.chats, key = { it.otro }) { c ->
-            ChatRow(
-                c = c,
-                escribiendo = s.escribiendo[c.otro] == true,
-                activo = s.chatActual == c.otro,
-                yo = s.nombre,
-                onClick = { onAbrirChat(c.otro) }
-            )
-            Divider(color = Borde, thickness = 1.dp)
+            ChatRow(c = c, escribiendo = s.escribiendo[c.otro] == true, activo = s.chatActual == c.otro, yo = s.nombre, onClick = { onAbrirChat(c.otro) })
+            Divider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
         }
     }
 }
 
 @Composable
-private fun ChatRow(
-    c: ChatItem,
-    escribiendo: Boolean,
-    activo: Boolean,
-    yo: String,
-    onClick: () -> Unit
-) {
+private fun ChatRow(c: ChatItem, escribiendo: Boolean, activo: Boolean, yo: String, onClick: () -> Unit) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .background(if (activo) AzulClaro else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().background(if (activo) AzulClaro else Color.Transparent).clickable { onClick() }.padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Avatar(c.avatar, c.otro, 48.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    c.otro,
-                    Modifier.weight(1f),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(c.ultimo.hora, fontSize = 11.sp, color = TextoSuave, fontWeight = FontWeight.Medium)
+                Text(c.otro, Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.ultimo.hora, fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -166,32 +120,16 @@ private fun ChatRow(
                     else -> (if (c.ultimo.de == yo) "Tú: " else "") + c.ultimo.texto
                 }
                 Text(
-                    preview,
-                    Modifier.weight(1f),
-                    fontSize = 13.5.sp,
-                    color = if (escribiendo) Azul else TextoSuave,
+                    preview, Modifier.weight(1f), fontSize = 14.5.sp, color = Color.Black,
                     fontStyle = if (escribiendo) FontStyle.Italic else FontStyle.Normal,
                     fontWeight = if (escribiendo) FontWeight.Medium else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
-                if (c.ultimo.de == yo && !escribiendo) {
-                    Spacer(Modifier.width(4.dp))
-                    CheckIcon(c.ultimo.estado)
-                }
+                if (c.ultimo.de == yo && !escribiendo) { Spacer(Modifier.width(4.dp)); CheckIcon(c.ultimo.estado) }
                 if (c.noLeidos > 0) {
                     Spacer(Modifier.width(6.dp))
-                    Box(
-                        Modifier
-                            .background(Azul, CircleShape)
-                            .padding(horizontal = 7.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            "${c.noLeidos}",
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Box(Modifier.background(Azul, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                        Text("${c.noLeidos}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -199,24 +137,27 @@ private fun ChatRow(
     }
 }
 
-// CheckIcon viene de MessageBubble.kt
+@Composable
+private fun CheckIcon(estado: String) {
+    val (icon, tint) = when (estado) {
+        "visto" -> Icons.Default.DoneAll to Azul
+        "entregado" -> Icons.Default.DoneAll to Color(0xFF64748B)
+        else -> Icons.Default.Done to Color(0xFF94A3B8)
+    }
+    Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+}
 
 @Composable
 private fun ListaUsuarios(s: UiState, onAbrirChat: (String) -> Unit) {
     val otros = s.usuarios.filter { it.nombre != s.nombre }
     if (otros.isEmpty()) {
-        Box(Modifier.fillMaxSize(), Alignment.Center) {
-            Text(
-                "No hay otros usuarios registrados todavía.",
-                color = TextoSuave, fontSize = 14.sp
-            )
-        }
+        Box(Modifier.fillMaxSize(), Alignment.Center) { Text("No hay otros usuarios registrados todavía.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) }
         return
     }
     val enLinea = otros.filter { it.enLinea }
     val desconectados = otros.filter { !it.enLinea }
 
-    LazyColumn(Modifier.fillMaxSize().background(Color.White)) {
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         if (enLinea.isNotEmpty()) {
             item { Separador("En línea") }
             items(enLinea, key = { it.nombre }) { u -> UsuarioRow(u, onAbrirChat) }
@@ -230,46 +171,20 @@ private fun ListaUsuarios(s: UiState, onAbrirChat: (String) -> Unit) {
 
 @Composable
 private fun Separador(texto: String) {
-    Text(
-        texto.uppercase(),
-        Modifier
-            .fillMaxWidth()
-            .background(Fondo)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
-        color = TextoSuave,
-        letterSpacing = 0.8.sp
-    )
+    Text(texto.uppercase(), Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 18.dp, vertical = 14.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black, letterSpacing = 0.8.sp)
 }
 
 @Composable
 private fun UsuarioRow(u: Usuario, onAbrirChat: (String) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable { onAbrirChat(u.nombre) }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(Modifier.fillMaxWidth().clickable { onAbrirChat(u.nombre) }.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(u.avatar, u.nombre, 44.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(u.nombre, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            val (txt, color) = estadoTextoUsuario(u)
-            Text(txt, fontSize = 13.sp, color = color)
+            Text(u.nombre, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+            // En vez de "En línea" o "Últ. conexión", mostramos la bio o un texto por defecto
+            val infoTexto = if (u.bio.isNotBlank()) u.bio else "¡Hola! Estoy usando Seend"
+            Text(infoTexto, fontSize = 14.sp, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
-    Divider(color = Borde, thickness = 1.dp)
-}
-
-private fun estadoTextoUsuario(u: Usuario): Pair<String, Color> {
-    if (u.enLinea) return "En línea" to Azul
-    if (u.ultima == 0.0) return "Desconectado" to TextoSuave
-    val diff = System.currentTimeMillis() / 1000.0 - u.ultima
-    return when {
-        diff < 60 -> "Últ. conexión hace un momento" to TextoSuave
-        diff < 3600 -> "Últ. conexión hace ${(diff / 60).toInt()} min" to TextoSuave
-        else -> "Desconectado" to TextoSuave
-    }
+    Divider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 }

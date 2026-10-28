@@ -55,6 +55,7 @@ fun SwipeToReplyContainer(
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
+            onDragStart = { offsetX = 0f; activado = false },
                         onDragStart = { 
                             activado = false 
                         },

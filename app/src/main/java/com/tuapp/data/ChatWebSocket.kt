@@ -85,11 +85,12 @@ class ChatWebSocket(
     })
     fun enviarMensajeConImagen(
         para: String, texto: String, imagenUrl: String,
-        imagenTamano: String, imagenDim: String
+        imagenTamano: String, imagenDim: String, blurhash: String = ""
     ) = send(buildJsonObject {
         put("tipo", "mensaje"); put("para", para); put("texto", texto)
         put("imagen_url", imagenUrl); put("imagen_tamano", imagenTamano)
         put("imagen_dim", imagenDim)
+        if (blurhash.isNotBlank()) put("blurhash", blurhash)
     })
     fun escribiendo(para: String, activo: Boolean) = send(buildJsonObject {
         put("tipo", "escribiendo"); put("para", para); put("activo", activo)

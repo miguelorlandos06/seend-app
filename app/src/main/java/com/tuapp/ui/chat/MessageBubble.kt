@@ -30,7 +30,7 @@ fun MessageBubble(
 ) {
     if (m.subidaEstado != null) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Box(Modifier.padding(4.dp)) { ThumbnailSubiendo(m) }
+            Box(Modifier.padding(4.dp)) { ThumbnailSubiendo(m, null) }
         }
         return
     }
@@ -40,56 +40,48 @@ fun MessageBubble(
     val borderMod = if (propio) Modifier.border(1.dp, Borde, RoundedCornerShape(16.dp)) else Modifier
 
     com.tuapp.ui.chat.SwipeToReplyContainer(onReply = onReply) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start
-    ) {
-        Column(
-            Modifier
-                .widthIn(max = 280.dp)
-                .background(bg, RoundedCornerShape(16.dp))
-                .then(borderMod)
-                .clickable { onReply() }
-                .padding(horizontal = 14.dp, vertical = 9.dp)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = if (propio) Arrangement.End else Arrangement.Start
         ) {
-            m.cita?.let { c ->
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (propio) Color(0x0D000000) else Color(0x26FFFFFF),
-                            RoundedCornerShape(6.dp)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Column {
-                        Text(c.autor, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = fg.copy(alpha = 0.9f))
-                        Text(c.texto, fontSize = 12.5.sp, color = fg.copy(alpha = 0.9f),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(
+                Modifier
+                    .widthIn(max = 280.dp)
+                    .background(bg, RoundedCornerShape(16.dp))
+                    .then(borderMod)
+                    .clickable { onReply() }
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            ) {
+                m.cita?.let { c ->
+                    Box(
+                        Modifier.fillMaxWidth().background(if (propio) Color(0x0D000000) else Color(0x26FFFFFF), RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Column {
+                            Text(c.autor, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = fg.copy(alpha = 0.9f))
+                            Text(c.texto, fontSize = 12.5.sp, color = fg.copy(alpha = 0.9f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
+                    Spacer(Modifier.height(6.dp))
                 }
-                Spacer(Modifier.height(6.dp))
-            }
 
-            if (m.texto.isNotEmpty()) {
-                Text(m.texto, fontSize = 15.sp, color = fg, lineHeight = 20.sp)
-            }
+                if (m.texto.isNotEmpty()) {
+                    Text(m.texto, fontSize = 15.sp, color = fg, lineHeight = 20.sp)
+                }
 
-            if (m.imagenUrl.isNotEmpty()) {
-                Spacer(Modifier.height(6.dp))
-                ImagenMensaje(m.imagenUrl, m.imagenTamano, m.imagenDim, onVerImagen)
-            }
+                if (m.imagenUrl.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    ImagenMensaje(m.imagenUrl, m.imagenTamano, m.imagenDim, m.blurhash, onVerImagen)
+                }
 
-            Row(Modifier.align(Alignment.End).padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(m.hora, color = fg.copy(alpha = 0.7f), fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
-                if (propio) {
-                    Spacer(Modifier.width(4.dp))
-                    CheckIcon(m.estado)
+                Row(Modifier.align(Alignment.End).padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(m.hora, color = fg.copy(alpha = 0.7f), fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                    if (propio) {
+                        Spacer(Modifier.width(4.dp))
+                        CheckIcon(m.estado)
+                    }
                 }
             }
         }
-    }
     }
 }
 

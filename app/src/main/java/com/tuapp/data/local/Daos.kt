@@ -8,6 +8,9 @@ interface MensajeDao {
     @Query("SELECT * FROM mensajes WHERE convKey = :convKey ORDER BY ts ASC")
     fun observarConversacion(convKey: String): Flow<List<MsgEntity>>
 
+    @Query("SELECT * FROM mensajes ORDER BY ts DESC")
+    fun observarTodosLosMensajes(): Flow<List<MsgEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarTodos(msgs: List<MsgEntity>)
 
@@ -16,6 +19,12 @@ interface MensajeDao {
 
     @Query("UPDATE mensajes SET estado = :estado WHERE id IN (:ids)")
     suspend fun actualizarEstados(ids: List<String>, estado: String)
+    
+    @Query("DELETE FROM mensajes WHERE id = :id")
+    suspend fun borrarPorId(id: String)
+
+    @Query("UPDATE mensajes SET estado = 'visto' WHERE de = :otro AND para = :yo")
+    suspend fun marcarLeido(otro: String, yo: String)
 
     @Query("DELETE FROM mensajes WHERE convKey = :convKey")
     suspend fun borrarConversacion(convKey: String)
@@ -25,12 +34,8 @@ interface MensajeDao {
 interface ChatDao {
     @Query("SELECT * FROM chats ORDER BY ts DESC")
     fun observarChats(): Flow<List<ChatEntity>>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun reemplazarTodos(chats: List<ChatEntity>)
-
-    @Query("UPDATE chats SET noLeidos = 0 WHERE otro = :otro")
-    suspend fun marcarLeido(otro: String)
 }
 
 @Dao
@@ -40,6 +45,9 @@ interface UsuarioDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun reemplazarTodos(usuarios: List<UsuarioEntity>)
+    
+    @Query("SELECT * FROM usuarios WHERE nombre = :nombre")
+    suspend fun buscarPorNombre(nombre: String): UsuarioEntity?
 }
 
 @Dao

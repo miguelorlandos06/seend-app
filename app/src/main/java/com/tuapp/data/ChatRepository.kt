@@ -4,6 +4,7 @@ import com.tuapp.data.local.*
 import com.tuapp.ui.chat.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -15,10 +16,36 @@ class ChatRepository(private val db: AppDatabase) {
             .map { list -> list.map { it.toMsg() } }
             .flowOn(Dispatchers.IO)
 
-    fun chats(): Flow<List<ChatItem>> =
-        db.chats().observarChats()
-            .map { list -> list.map { it.toChatItem() } }
-            .flowOn(Dispatchers.IO)
+    // Construye la lista de chats cruzando los mensajes de Room con los usuarios (para tener avatar y estado)
+    fun chats(yo: String): Flow<List<ChatItem>> =
+        combine(
+            db.mensajes().observarTodosLosMensajes(),
+            db.usuarios().observarUsuarios()
+        ) { todosMensajes, todosUsuarios ->
+            val usuariosMap = todosUsuarios.associateBy { it.nombre }
+            val agrupados = todosMensajes.groupBy { if (it.de == yo) it.para else it.de }
+            
+            agrupados.map { (otro, mensajes) ->
+                val ultimo = mensajes.maxByOrNull { it.ts }!!
+                val usuario = usuariosMap[otro]
+                
+                ChatItem(
+                    otro = otro,
+                    ultimo = Ultimo(
+                        texto = ultimo.texto,
+                        imagen = ultimo.imagenUrl.isNotEmpty(),
+                        hora = ultimo.hora,
+                        ts = ultimo.ts,
+                        de = ultimo.de,
+                        estado = ultimo.estado
+                    ),
+                    noLeidos = 0,
+                    enLinea = usuario?.enLinea ?: false,
+                    avatar = usuario?.avatar ?: "",
+                    ultima = usuario?.ultima ?: 0.0
+                )
+            }.sortedByDescending { it.ultimo.ts }
+        }.flowOn(Dispatchers.IO)
 
     fun usuarios(): Flow<List<Usuario>> =
         db.usuarios().observarUsuarios()
@@ -28,20 +55,28 @@ class ChatRepository(private val db: AppDatabase) {
     suspend fun guardarMensaje(m: Msg) = withContext(Dispatchers.IO) {
         db.mensajes().insertar(m.toEntity())
     }
+    
+    suspend fun borrarMensaje(id: String) = withContext(Dispatchers.IO) {
+        db.mensajes().borrarPorId(id)
+    }
     suspend fun guardarMensajes(msgs: List<Msg>) = withContext(Dispatchers.IO) {
         db.mensajes().insertarTodos(msgs.map { it.toEntity() })
     }
     suspend fun actualizarEstados(ids: List<String>, estado: String) = withContext(Dispatchers.IO) {
         db.mensajes().actualizarEstados(ids, estado)
     }
-    suspend fun reemplazarChats(chats: List<ChatItem>) = withContext(Dispatchers.IO) {
-        db.chats().reemplazarTodos(chats.map { it.toEntity() })
-    }
     suspend fun reemplazarUsuarios(us: List<Usuario>) = withContext(Dispatchers.IO) {
         db.usuarios().reemplazarTodos(us.map { it.toEntity() })
     }
-    suspend fun marcarLeido(otro: String) = withContext(Dispatchers.IO) {
-        db.chats().marcarLeido(otro)
+    suspend fun marcarLeido(otro: String, yo: String) = withContext(Dispatchers.IO) {
+        db.mensajes().marcarLeido(otro, yo)
+    }
+    
+    suspend fun actualizarUsuarioLocal(nombre: String, bio: String, avatar: String) = withContext(Dispatchers.IO) {
+        val actual = db.usuarios().buscarPorNombre(nombre)
+        db.usuarios().reemplazarTodos(listOf(
+            UsuarioEntity(nombre, avatar, actual?.ultima ?: 0.0, actual?.enLinea ?: false)
+        ))
     }
 
     companion object {
@@ -50,18 +85,16 @@ class ChatRepository(private val db: AppDatabase) {
     }
 }
 
-// ---------- mappers ----------
 fun Msg.toEntity() = MsgEntity(
     id = id, de = de, para = para, texto = texto,
-    imagenUrl = imagenUrl, imagenTamano = imagenTamano, imagenDim = imagenDim,
+    imagenUrl = imagenUrl, imagenTamano = imagenTamano, imagenDim = imagenDim, blurhash = blurhash,
     estado = estado, hora = hora, ts = ts,
     citaAutor = cita?.autor, citaTexto = cita?.texto,
     convKey = ChatRepository.convKey(de, para)
 )
-
 fun MsgEntity.toMsg() = Msg(
     id = id, de = de, para = para, texto = texto,
-    imagenUrl = imagenUrl, imagenTamano = imagenTamano, imagenDim = imagenDim,
+    imagenUrl = imagenUrl, imagenTamano = imagenTamano, imagenDim = imagenDim, blurhash = blurhash,
     estado = estado, hora = hora, ts = ts,
     cita = if (citaAutor != null) Cita(citaAutor, citaTexto ?: "") else null,
     estadoEnvio = when (estado) {
@@ -70,18 +103,5 @@ fun MsgEntity.toMsg() = Msg(
         else -> EstadoEnvio.Enviado
     }
 )
-
-fun ChatItem.toEntity() = ChatEntity(
-    otro = otro, texto = ultimo.texto, imagen = ultimo.imagen, hora = ultimo.hora,
-    ts = ultimo.ts, de = ultimo.de, estado = ultimo.estado, noLeidos = noLeidos,
-    enLinea = enLinea, avatar = avatar, ultima = ultima
-)
-
-fun ChatEntity.toChatItem() = ChatItem(
-    otro = otro,
-    ultimo = Ultimo(texto, imagen, hora, ts, de, estado),
-    noLeidos = noLeidos, enLinea = enLinea, avatar = avatar, ultima = ultima
-)
-
 fun Usuario.toEntity() = UsuarioEntity(nombre, avatar, ultima, enLinea)
 fun UsuarioEntity.toUsuario() = Usuario(nombre, avatar, ultima, enLinea)

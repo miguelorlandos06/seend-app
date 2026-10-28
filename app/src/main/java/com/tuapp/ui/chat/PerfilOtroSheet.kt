@@ -7,7 +7,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,83 +29,74 @@ fun PerfilOtroSheet(
     perfil: PerfilPublico,
     onCerrar: () -> Unit
 ) {
-    Box(
-        Modifier.fillMaxSize().background(Color(0x99000000)).clickable { onCerrar() }
-    ) {
-        Surface(
-            Modifier.fillMaxHeight().width(360.dp).align(Alignment.CenterEnd)
-                .clickable(enabled = false) {},
-            color = Color.White,
-            shadowElevation = 8.dp
-        ) {
-            Box(Modifier.fillMaxSize()) {
-                IconButton(
-                    onClick = onCerrar,
-                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
-                ) {
-                    Icon(Icons.Default.Close, null, tint = TextoSuave)
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            // Top bar
+            Row(
+                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onCerrar) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onSurface)
                 }
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                        .padding(60.dp, 24.dp, 24.dp, 30.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Text("Perfil", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+            }
+            Divider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+            // Avatar
+            Box(
+                Modifier.fillMaxWidth().padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier.size(130.dp).clip(CircleShape).background(AzulClaro),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Avatar
-                    Box(
-                        Modifier.size(100.dp).clip(CircleShape).background(AzulClaro),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (perfil.avatar.isNotBlank()) {
-                            AsyncImage(
-                                model = perfil.avatar,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Text(
-                                (perfil.nombre.firstOrNull() ?: '?').uppercase(),
-                                color = AzulOscuro,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 38.sp
-                            )
-                        }
+                    if (perfil.avatar.isNotBlank()) {
+                        AsyncImage(model = perfil.avatar, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    } else {
+                        Text((perfil.nombre.firstOrNull() ?: '?').uppercase(), color = AzulOscuro, fontWeight = FontWeight.Bold, fontSize = 50.sp)
                     }
-                    Spacer(Modifier.height(20.dp))
-                    Text(perfil.nombre, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
-
-                    val (estadoTxt, estadoColor) = estadoPerfil(perfil)
-                    Text(estadoTxt, fontSize = 14.sp, color = estadoColor, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.height(28.dp))
-
-                    // Biografía
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Biografía", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextoSuave)
-                        Text(
-                            perfil.bio.ifBlank { "—" },
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.weight(1f).padding(start = 12.dp)
-                        )
-                    }
-                    Divider(color = Borde, thickness = 1.dp)
                 }
             }
+
+            // Info
+            FilaPerfilOtro(Icons.Default.AlternateEmail, "Nombre de usuario", "@${perfil.nombre}")
+            FilaPerfilOtro(Icons.Default.Info, "Info.", perfil.bio.ifBlank { "Sin biografía" })
+            
+            Spacer(Modifier.height(16.dp))
+            
+            val (estado, _) = if (perfil.enLinea) "En línea" to Azul else "Últ. conexión: ${formatearHora(perfil.ultima)}" to TextoSuave
+            Text(estado, Modifier.fillMaxWidth().padding(16.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-private fun estadoPerfil(p: PerfilPublico): Pair<String, Color> {
-    if (p.enLinea) return "En línea" to Azul
-    if (p.ultima == 0.0) return "Desconectado" to TextoSuave
-    val diff = System.currentTimeMillis() / 1000.0 - p.ultima
+@Composable
+private fun FilaPerfilOtro(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    titulo: String,
+    valor: String
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(titulo, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(valor, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private fun formatearHora(ts: Double): String {
+    if (ts == 0.0) return "Desconocido"
+    val diff = System.currentTimeMillis() / 1000.0 - ts
     return when {
-        diff < 60 -> "Últ. conexión hace un momento" to TextoSuave
-        diff < 3600 -> "Últ. conexión hace ${(diff / 60).toInt()} min" to TextoSuave
-        else -> "Desconectado" to TextoSuave
+        diff < 60 -> "hace un momento"
+        diff < 3600 -> "hace ${(diff / 60).toInt()} min"
+        else -> "hace mucho tiempo"
     }
 }

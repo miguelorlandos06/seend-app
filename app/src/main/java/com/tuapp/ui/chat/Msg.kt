@@ -11,22 +11,18 @@ enum class SubidaEstado { Pendiente, Subiendo, Completada, Fallida }
 
 @Serializable
 data class Msg(
-    val id: String,
-    val de: String,
-    val para: String,
+    val id: String, val de: String, val para: String,
     val texto: String = "",
     @SerialName("imagen_url") val imagenUrl: String = "",
     @SerialName("imagen_tamano") val imagenTamano: String = "",
     @SerialName("imagen_dim") val imagenDim: String = "",
+    val blurhash: String = "",
     val estado: String = "enviado",
-    val hora: String = "",
-    val ts: Double = 0.0,
+    val hora: String = "", val ts: Double = 0.0,
     val cita: Cita? = null,
-    // ---- solo cliente ----
     val subidaEstado: SubidaEstado? = null,
     val progreso: Float = 0f,
-    val bytesSubidos: Long = 0,
-    val bytesTotales: Long = 0,
+    val bytesSubidos: Long = 0, val bytesTotales: Long = 0,
     val dimensiones: String? = null,
     val estadoEnvio: EstadoEnvio = EstadoEnvio.Enviado
 )

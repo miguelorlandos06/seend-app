@@ -12,6 +12,7 @@ data class MsgEntity(
     val imagenUrl: String,
     val imagenTamano: String,
     val imagenDim: String,
+    val blurhash: String = "",
     val estado: String,
     val hora: String,
     val ts: Double,

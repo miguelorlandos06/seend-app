@@ -88,7 +88,7 @@ class ChatViewModel(
         reconexion.iniciar()
 
         viewModelScope.launch {
-            repo.chats().collect { chats -> _ui.update { it.copy(chats = chats) } }
+            repo.chats(_ui.value.nombre).collect { chats -> _ui.update { it.copy(chats = chats) } }
         }
         viewModelScope.launch {
             repo.usuarios().collect { usuarios -> _ui.update { it.copy(usuarios = usuarios) } }
@@ -107,8 +107,8 @@ class ChatViewModel(
                 _ui.update { it.copy(error = "Sesión inválida. Vuelve a iniciar sesión.") }
             }
             "chats" -> {
-                val chats = parseChats(m["chats"]!!.jsonArray)
-                viewModelScope.launch { repo.reemplazarChats(chats) }
+                // El servidor envía usuarios, la lista se construye desde Room
+                ws.pedirUsuarios()
             }
             "usuarios" -> {
                 val usuarios = parseUsuarios(m["usuarios"]!!.jsonArray)
@@ -127,7 +127,15 @@ class ChatViewModel(
             }
             "mensaje" -> {
                 val msg = parseMensaje(m["mensaje"]!!.jsonObject)
+                val eco = m["eco"]?.jsonPrimitive?.booleanOrNull == true
+                
                 viewModelScope.launch {
+                    if (eco) {
+                        val provisional = _ui.value.mensajes.find { it.id.startsWith("tmp_") && it.texto == msg.texto && it.para == msg.para }
+                        if (provisional != null) {
+                            repo.borrarMensaje(provisional.id)
+                        }
+                    }
                     repo.guardarMensaje(msg)
                     val otro = if (msg.de == _ui.value.nombre) msg.para else msg.de
                     if (_ui.value.chatActual == otro && msg.de != _ui.value.nombre) {
@@ -170,7 +178,6 @@ class ChatViewModel(
                 viewModelScope.launch {
                     val chats = _ui.value.chats.map { if (it.otro == usuario) it.copy(enLinea = enLinea, ultima = ultima) else it }
                     val usuarios = _ui.value.usuarios.map { if (it.nombre == usuario) it.copy(enLinea = enLinea, ultima = ultima) else it }
-                    repo.reemplazarChats(chats)
                     repo.reemplazarUsuarios(usuarios)
                 }
             }
@@ -186,16 +193,22 @@ class ChatViewModel(
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 val bio = m["bio"]?.jsonPrimitive?.content ?: ""
                 val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
-                viewModelScope.launch { store.guardarNombre(nombre) }
-                _ui.update { it.copy(nombre = nombre, bioPropio = bio, avatarPropio = avatar, guardandoPerfil = false, mostrarMiPerfil = false) }
+                viewModelScope.launch { 
+                    store.guardarNombre(nombre)
+                    repo.actualizarUsuarioLocal(nombre, bio, avatar)
+                }
+                _ui.update { s ->
+                    s.copy(
+                        nombre = nombre, bioPropio = bio, avatarPropio = avatar,
+                        guardandoPerfil = false, mostrarMiPerfil = false
+                    )
+                }
             }
             "perfil_actualizado_otro" -> {
                 val nombre = m["nombre"]!!.jsonPrimitive.content
                 val avatar = m["avatar"]?.jsonPrimitive?.content ?: ""
                 viewModelScope.launch {
-                    val chats = _ui.value.chats.map { if (it.otro == nombre) it.copy(avatar = avatar) else it }
                     val usuarios = _ui.value.usuarios.map { if (it.nombre == nombre) it.copy(avatar = avatar) else it }
-                    repo.reemplazarChats(chats)
                     repo.reemplazarUsuarios(usuarios)
                 }
             }
@@ -213,7 +226,8 @@ class ChatViewModel(
             repo.mensajesDe(otro, _ui.value.nombre).collect { msgs -> _ui.update { it.copy(mensajes = msgs) } }
         }
         ws.abrirChat(otro)
-        viewModelScope.launch { repo.marcarLeido(otro) }
+        ws.pedirPerfil(otro)
+        viewModelScope.launch { repo.marcarLeido(otro, _ui.value.nombre) }
     }
 
     fun cerrarChat() {
@@ -235,7 +249,26 @@ class ChatViewModel(
         val textoLimpio = texto.trim()
         if (textoLimpio.isEmpty()) return
         val resp = _ui.value.respondiendoA?.id
-        ws.enviarMensaje(chat, textoLimpio, resp)
+        
+        val tmpId = "tmp_${System.currentTimeMillis()}"
+        val hora = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        
+        val provisional = Msg(
+            id = tmpId, de = _ui.value.nombre, para = chat,
+            texto = textoLimpio, hora = hora,
+            ts = System.currentTimeMillis() / 1000.0, 
+            estadoEnvio = if (ws.connected.value) EstadoEnvio.Enviando else EstadoEnvio.EnCola
+        )
+        
+        viewModelScope.launch {
+            repo.guardarMensaje(provisional)
+            if (!ws.connected.value) {
+                cola.encolar(chat, textoLimpio, null, null, null, resp)
+            } else {
+                ws.enviarMensaje(chat, textoLimpio, resp)
+            }
+        }
+        
         _ui.update { it.copy(respondiendoA = null) }
         ws.escribiendo(chat, false)
     }
@@ -259,15 +292,18 @@ class ChatViewModel(
                 uploader.upload(ctx, uri, prep, mime) { subido, total ->
                     _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(progreso = if (total > 0) subido.toFloat() / total else 0f, bytesSubidos = subido, bytesTotales = total) else it }) }
                 }
-                ws.enviarMensajeConImagen(chat, texto, prep.url_publica, fmtBytes(size), dims ?: "")
+                
+                // Generar BlurHash
+                val bitmap = android.provider.MediaStore.Images.Media.getBitmap(ctx.contentResolver, uri)
+                val hash = try { com.tuapp.ui.components.BlurHash.encode(bitmap, 4, 4) } catch(e: Exception) { "" }
+
+                ws.enviarMensajeConImagen(chat, texto, prep.url_publica, fmtBytes(size), dims ?: "", hash)
                 _ui.update { s -> s.copy(subiendo = s.subiendo.filterNot { it.id == tmpId }) }
             } catch (e: Exception) {
-                _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(subidaEstado = SubidaFallida()) else it }) }
+                _ui.update { s -> s.copy(subiendo = s.subiendo.map { if (it.id == tmpId) it.copy(subidaEstado = SubidaEstado.Fallida) else it }) }
             }
         }
     }
-
-    fun SubidaFallida() = SubidaEstado.Fallida
 
     private fun drenarCola() {
         viewModelScope.launch {
@@ -275,8 +311,6 @@ class ChatViewModel(
             for (p in pendientes) {
                 if (p.imagenUri == null) {
                     ws.enviarMensaje(p.para, p.texto, p.responderA)
-                } else {
-                    // La subida de imágenes offline requiere relanzar el flujo, lo omitimos por simplicidad en esta iteración
                 }
                 cola.borrar(p.idLocal)
             }
@@ -343,6 +377,6 @@ class ChatViewModel(
     private fun parseMensajes(arr: JsonArray): List<Msg> = arr.map { parseMensaje(it.jsonObject) }
     private fun parseMensaje(o: JsonObject): Msg {
         val citaJson = o["cita"]?.jsonObject
-        return Msg(id = o["id"]!!.jsonPrimitive.content, de = o["de"]!!.jsonPrimitive.content, para = o["para"]!!.jsonPrimitive.content, texto = o["texto"]?.jsonPrimitive?.content ?: "", imagenUrl = o["imagen_url"]?.jsonPrimitive?.content ?: "", imagenTamano = o["imagen_tamano"]?.jsonPrimitive?.content ?: "", imagenDim = o["imagen_dim"]?.jsonPrimitive?.content ?: "", estado = o["estado"]?.jsonPrimitive?.content ?: "enviado", hora = o["hora"]?.jsonPrimitive?.content ?: "", ts = o["ts"]?.jsonPrimitive?.doubleOrNull ?: 0.0, cita = if (citaJson != null) Cita(citaJson["autor"]?.jsonPrimitive?.content ?: "", citaJson["texto"]?.jsonPrimitive?.content ?: "") else null, estadoEnvio = when (o["estado"]?.jsonPrimitive?.content) { "visto" -> EstadoEnvio.Visto; "entregado" -> EstadoEnvio.Entregado; else -> EstadoEnvio.Enviado })
+        return Msg(id = o["id"]!!.jsonPrimitive.content, de = o["de"]!!.jsonPrimitive.content, para = o["para"]!!.jsonPrimitive.content, texto = o["texto"]?.jsonPrimitive?.content ?: "", imagenUrl = o["imagen_url"]?.jsonPrimitive?.content ?: "", imagenTamano = o["imagen_tamano"]?.jsonPrimitive?.content ?: "", imagenDim = o["imagen_dim"]?.jsonPrimitive?.content ?: "", blurhash = o["blurhash"]?.jsonPrimitive?.content ?: "", estado = o["estado"]?.jsonPrimitive?.content ?: "enviado", hora = o["hora"]?.jsonPrimitive?.content ?: "", ts = o["ts"]?.jsonPrimitive?.doubleOrNull ?: 0.0, cita = if (citaJson != null) Cita(citaJson["autor"]?.jsonPrimitive?.content ?: "", citaJson["texto"]?.jsonPrimitive?.content ?: "") else null, estadoEnvio = when (o["estado"]?.jsonPrimitive?.content) { "visto" -> EstadoEnvio.Visto; "entregado" -> EstadoEnvio.Entregado; else -> EstadoEnvio.Enviado })
     }
 }
