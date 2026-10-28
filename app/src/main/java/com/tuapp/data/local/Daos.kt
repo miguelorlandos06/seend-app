@@ -8,8 +8,15 @@ interface MensajeDao {
     @Query("SELECT * FROM mensajes WHERE convKey = :convKey ORDER BY ts ASC")
     fun observarConversacion(convKey: String): Flow<List<MsgEntity>>
 
-    @Query("SELECT * FROM mensajes ORDER BY ts DESC")
-    fun observarTodosLosMensajes(): Flow<List<MsgEntity>>
+    @Query("""
+        SELECT m.* FROM mensajes m
+        INNER JOIN (
+            SELECT convKey, MAX(ts) as max_ts FROM mensajes
+            WHERE de = :yo OR para = :yo
+            GROUP BY convKey
+        ) latest ON m.convKey = latest.convKey AND m.ts = latest.max_ts
+    """)
+    fun observarUltimosMensajes(yo: String): Flow<List<MsgEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarTodos(msgs: List<MsgEntity>)
@@ -33,16 +40,10 @@ interface UsuarioDao {
     fun observarUsuarios(): Flow<List<UsuarioEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertar(usuario: UsuarioEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun reemplazarTodos(usuarios: List<UsuarioEntity>)
 
-    @Query("UPDATE usuarios SET avatar = :avatar WHERE nombre = :nombre")
-    suspend fun actualizarAvatar(nombre: String, avatar: String)
-
-    @Query("UPDATE usuarios SET enLinea = :enLinea, ultima = :ultima WHERE nombre = :nombre")
-    suspend fun actualizarPresencia(nombre: String, enLinea: Boolean, ultima: Double)
+    @Query("UPDATE usuarios SET avatar = :avatar, bio = :bio WHERE nombre = :nombre")
+    suspend fun actualizarPerfilLocal(nombre: String, avatar: String, bio: String)
 
     @Query("SELECT * FROM usuarios WHERE nombre = :nombre")
     suspend fun buscarPorNombre(nombre: String): UsuarioEntity?

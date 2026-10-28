@@ -64,7 +64,11 @@ fun ConversationPanel(
 
     LaunchedEffect(mensajesVisibles.size) {
         if (mensajesVisibles.isNotEmpty()) {
-            listaState.animateScrollToItem(mensajesVisibles.lastIndex)
+            // Solo hacer scroll si el usuario ya estaba en el fondo o al abrir el chat
+            val ultimoVisible = listaState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            if (ultimoVisible >= mensajesVisibles.size - 3 || mensajesVisibles.size == 1) {
+                listaState.animateScrollToItem(mensajesVisibles.lastIndex)
+            }
         }
     }
 

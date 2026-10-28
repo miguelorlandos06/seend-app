@@ -21,25 +21,21 @@ class ChatWebSocket(
     val events: SharedFlow<JsonObject> = _events.asSharedFlow()
     private val _connected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = _connected.asStateFlow()
+    
+    var onMensajeFallido: ((JsonObject) -> Unit)? = null // Callback para la cola
 
     suspend fun conectar(): Unit = suspendCancellableCoroutine { cont ->
         val req = Request.Builder().url(url).build()
         val listener = object : WebSocketListener() {
-            override fun onOpen(w: WebSocket, r: Response) {
-                _connected.value = true
-                if (cont.isActive) cont.resume(Unit)
-            }
+            override fun onOpen(w: WebSocket, r: Response) { _connected.value = true; if (cont.isActive) cont.resume(Unit) }
             override fun onMessage(w: WebSocket, text: String) {
-                runCatching { Json.parseToJsonElement(text).jsonObject }
-                    .onSuccess { _events.tryEmit(it) }
+                runCatching { Json.parseToJsonElement(text).jsonObject }.onSuccess { _events.tryEmit(it) }
             }
             override fun onFailure(w: WebSocket, t: Throwable, r: Response?) {
-                _connected.value = false
-                if (cont.isActive) cont.resumeWithException(t)
+                _connected.value = false; if (cont.isActive) cont.resumeWithException(t)
             }
             override fun onClosed(w: WebSocket, code: Int, reason: String) {
-                _connected.value = false
-                if (cont.isActive) cont.resumeWithException(Exception("Socket cerrado inesperadamente"))
+                _connected.value = false; if (cont.isActive) cont.resumeWithException(Exception("Cerrado"))
             }
         }
         ws = client.newWebSocket(req, listener)
@@ -48,7 +44,17 @@ class ChatWebSocket(
 
     fun cerrar() { ws?.close(1000, "bye"); ws = null; _connected.value = false }
 
-    fun send(obj: JsonObject) { ws?.send(obj.toString()) }
+    fun send(obj: JsonObject): Boolean {
+        val actualWs = ws
+        return if (actualWs != null && _connected.value) {
+            val exito = actualWs.send(obj.toString())
+            if (!exito) onMensajeFallido?.invoke(obj)
+            exito
+        } else {
+            onMensajeFallido?.invoke(obj)
+            false
+        }
+    }
 
     fun login(nombre: String, pass: String) = send(buildJsonObject { put("tipo", "login"); put("nombre", nombre); put("password", pass) })
     fun registro(nombre: String, pass: String) = send(buildJsonObject { put("tipo", "registro"); put("nombre", nombre); put("password", pass) })
