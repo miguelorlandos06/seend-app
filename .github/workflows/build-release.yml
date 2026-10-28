@@ -36,14 +36,15 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Upload APK to ToDus S3
+      - name: Upload APK to Uguu
         run: |
-          curl -X PUT \
-            --fail \
-            --show-error \
-            -H "Content-Type: application/vnd.android.package-archive" \
-            --upload-file app/build/outputs/apk/release/app-release.apk \
-            "https://s3.todus.cu/stream/seend/app-release-${{ github.run_number }}.apk"
+          URL=$(curl -s -F "files[]=@app/build/outputs/apk/release/app-release.apk" https://uguu.se/upload | grep -oP '"url":"[^"]+"' | cut -d'"' -f4)
+          echo "APK subido a: $URL"
+          echo "$URL" > apk_url.txt
+          echo "### APK URL: $URL" >> $GITHUB_STEP_SUMMARY
+
+      - name: Show APK URL
+        run: cat apk_url.txt
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
