@@ -24,28 +24,31 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      # Generar el wrapper por si acaso
-      - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.7
+      # Valida el wrapper y cachea dependencias de Gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
+      # Asegura permisos de ejecución (por si el bit se perdió al commitear)
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: seend-release
+          name: seend-release-${{ github.run_id }}
           path: app/build/outputs/apk/release/*.apk
           retention-days: 7
+          if-no-files-found: error
 
+      # Release draft con tag dinámico para evitar conflictos
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
           files: app/build/outputs/apk/release/*.apk
-          tag_name: v1.0.1
+          tag_name: v1.0.1-build${{ github.run_number }}
           draft: true
           prerelease: false
