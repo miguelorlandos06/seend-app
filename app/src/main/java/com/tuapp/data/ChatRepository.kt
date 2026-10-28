@@ -12,17 +12,27 @@ import kotlinx.coroutines.withContext
 class ChatRepository(private val db: AppDatabase) {
 
     fun mensajesDe(otro: String, yo: String): Flow<List<Msg>> =
-        db.mensajes().observarConversacion(convKey(otro, yo)).map { list -> list.map { it.toMsg() } }.flowOn(Dispatchers.IO)
+        db.mensajes().observarConversacion(convKey(otro, yo))
+            .map { list -> list.map { it.toMsg() } }
+            .flowOn(Dispatchers.IO)
 
     fun chats(yo: String): Flow<List<ChatItem>> =
-        combine(db.mensajes().observarTodosLosMensajes(), db.usuarios().observarUsuarios()) { todosMensajes, todosUsuarios ->
+        combine(
+            db.mensajes().observarUltimosMensajes(yo),
+            db.usuarios().observarUsuarios()
+        ) { ultimosMensajes, todosUsuarios ->
             val usuariosMap = todosUsuarios.associateBy { it.nombre }
-            val agrupados = todosMensajes.groupBy { if (it.de == yo) it.para else it.de }
-            agrupados.map { (otro, mensajes) ->
-                val ultimo = mensajes.maxByOrNull { it.ts }!!
+            ultimosMensajes.map { msg ->
+                val otro = if (msg.de == yo) msg.para else msg.de
                 val usuario = usuariosMap[otro]
-                val noLeidos = mensajes.count { it.de != yo && it.estado != "visto" }
-                ChatItem(otro, Ultimo(ultimo.texto, ultimo.imagenUrl.isNotEmpty(), ultimo.hora, ultimo.ts, ultimo.de, ultimo.estado), noLeidos, usuario?.enLinea ?: false, usuario?.avatar ?: "", usuario?.ultima ?: 0.0)
+                ChatItem(
+                    otro = otro,
+                    ultimo = Ultimo(msg.texto, msg.imagenUrl.isNotEmpty(), msg.hora, msg.ts, msg.de, msg.estado),
+                    noLeidos = 0,
+                    enLinea = usuario?.enLinea ?: false,
+                    avatar = usuario?.avatar ?: "",
+                    ultima = usuario?.ultima ?: 0.0
+                )
             }.sortedByDescending { it.ultimo.ts }
         }.flowOn(Dispatchers.IO)
 
@@ -32,15 +42,8 @@ class ChatRepository(private val db: AppDatabase) {
     suspend fun borrarMensaje(id: String) = withContext(Dispatchers.IO) { db.mensajes().borrarPorId(id) }
     suspend fun guardarMensajes(msgs: List<Msg>) = withContext(Dispatchers.IO) { db.mensajes().insertarTodos(msgs.map { it.toEntity() }) }
     suspend fun actualizarEstados(ids: List<String>, estado: String) = withContext(Dispatchers.IO) { db.mensajes().actualizarEstados(ids, estado) }
-    
-    suspend fun reemplazarUsuarios(us: List<Usuario>) = withContext(Dispatchers.IO) {
-        db.usuarios().reemplazarTodos(us.map { it.toEntity() })
-    }
-    
-    suspend fun actualizarPerfilLocal(nombre: String, avatar: String, bio: String) = withContext(Dispatchers.IO) {
-        db.usuarios().actualizarPerfilLocal(nombre, avatar, bio)
-    }
-    
+    suspend fun reemplazarUsuarios(us: List<Usuario>) = withContext(Dispatchers.IO) { db.usuarios().reemplazarTodos(us.map { it.toEntity() }) }
+    suspend fun actualizarPerfilLocal(nombre: String, avatar: String, bio: String) = withContext(Dispatchers.IO) { db.usuarios().actualizarPerfilLocal(nombre, avatar, bio) }
     suspend fun marcarLeido(otro: String, yo: String) = withContext(Dispatchers.IO) { db.mensajes().marcarLeido(otro, yo) }
 
     companion object { fun convKey(a: String, b: String) = listOf(a, b).sorted().joinToString("|") }

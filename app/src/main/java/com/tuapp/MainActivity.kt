@@ -26,7 +26,10 @@ class MainActivity : ComponentActivity() {
                 nombreInicial = app.sessionStore.nombre() ?: ""
             }
 
-            val oscuroPref by app.temaPrefs.oscuro.collectAsState(initial = isSystemInDarkTheme())
+            val sistemaOscuro = isSystemInDarkTheme()
+            val oscuroPref by app.temaPrefs.oscuro.collectAsState(initial = null)
+            val esOscuro = oscuroPref ?: sistemaOscuro
+
             val scope = rememberCoroutineScope()
 
             val vm: ChatViewModel = viewModel(factory = object : ViewModelProvider.Factory {
@@ -38,14 +41,14 @@ class MainActivity : ComponentActivity() {
 
             val s by vm.ui.collectAsState()
 
-            AppTheme(oscuro = oscuroPref) {
+            AppTheme(oscuro = esOscuro) {
                 if (!s.autenticado && nombreInicial.isBlank()) {
                     AuthScreen(app.ws, app.sessionStore, onAutenticado = { vm.marcarAutenticado(it) })
                 } else {
                     ChatScreen(
                         vm = vm,
                         onToggleTema = { oscuro -> scope.launch { app.temaPrefs.set(oscuro) } },
-                        isOscuro = oscuroPref
+                        isOscuro = esOscuro
                     )
                 }
             }
