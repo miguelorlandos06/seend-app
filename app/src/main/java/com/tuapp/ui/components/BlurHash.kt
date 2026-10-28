@@ -19,16 +19,16 @@ object BlurHash {
         val pixels = IntArray(width * height)
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
         val factors = Array(componentsX * componentsY) { FloatArray(3) }
+
         for (y in 0 until height) {
             for (x in 0 until width) {
-                val index = x + y * width
-                val color = pixels[index]
+                val color = pixels[x + y * width]
                 val r = Color.red(color) / 255f
                 val g = Color.green(color) / 255f
                 val b = Color.blue(color) / 255f
                 for (j in 0 until componentsY) {
                     for (i in 0 until componentsX) {
-                        val basis = cos(PI * i * x / width) * cos(PI * j * y / height)
+                        val basis = (cos(PI * i * x / width) * cos(PI * j * y / height)).toFloat()
                         factors[i + j * componentsX][0] += r * basis
                         factors[i + j * componentsX][1] += g * basis
                         factors[i + j * componentsX][2] += b * basis
@@ -36,11 +36,13 @@ object BlurHash {
                 }
             }
         }
+
         val maxVal = factors.maxOf { it.maxOf { v -> abs(v) } }
         val quantisedMax = max(0, min(82, floor(maxVal * 166 - 0.5).toInt()))
         val maxValue = (quantisedMax + 1) / 166f
         val dc = factors[0].map { (it / (width * height)).coerceIn(0f, 1f) }
         val sizeFlag = componentsX - 1 + (componentsY - 1) * 9
+
         val result = StringBuilder()
         result.append(ALPHABET[sizeFlag])
         result.append(ALPHABET[quantisedMax])
@@ -64,14 +66,24 @@ object BlurHash {
         val numX = (sizeFlag % 9) + 1
         val quantisedMax = ALPHABET.indexOf(blurHash[1])
         val maxValue = (quantisedMax + 1) / 166f
+
         val colors = Array(numX * numY) { IntArray(3) }
-        colors[0] = intArrayOf(ALPHABET.indexOf(blurHash[2]) * 19 + ALPHABET.indexOf(blurHash[3]), ALPHABET.indexOf(blurHash[4]) * 19 + ALPHABET.indexOf(blurHash[5]), ALPHABET.indexOf(blurHash[6]) * 19 + ALPHABET.indexOf(blurHash[7]))
+        colors[0] = intArrayOf(
+            ALPHABET.indexOf(blurHash[2]) * 19 + ALPHABET.indexOf(blurHash[3]),
+            ALPHABET.indexOf(blurHash[4]) * 19 + ALPHABET.indexOf(blurHash[5]),
+            ALPHABET.indexOf(blurHash[6]) * 19 + ALPHABET.indexOf(blurHash[7])
+        )
         for (i in 1 until colors.size) {
             val idx = 4 + i * 2
             val v = ALPHABET.indexOf(blurHash[idx]) * 19 * 19 + ALPHABET.indexOf(blurHash[idx + 1]) * 19 + ALPHABET.indexOf(blurHash[idx + 2])
-            colors[i] = intArrayOf((v / (19 * 19) - 9) * maxValue * 255, ((v / 19) % 19 - 9) * maxValue * 255, (v % 19 - 9) * maxValue * 255)
+            colors[i] = intArrayOf(
+                ((v / (19 * 19) - 9) * maxValue * 255).toInt(),
+                (((v / 19) % 19 - 9) * maxValue * 255).toInt(),
+                ((v % 19 - 9) * maxValue * 255).toInt()
+            )
         }
         colors[0] = colors[0].map { it * it }.toIntArray()
+
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val pixels = IntArray(width * height)
         for (y in 0 until height) {
@@ -79,7 +91,7 @@ object BlurHash {
                 var r = 0f; var g = 0f; var b = 0f
                 for (j in 0 until numY) {
                     for (i in 0 until numX) {
-                        val basis = cos(PI * i * x / width) * cos(PI * j * y / height)
+                        val basis = (cos(PI * i * x / width) * cos(PI * j * y / height)).toFloat()
                         r += colors[i + j * numX][0] * basis
                         g += colors[i + j * numX][1] * basis
                         b += colors[i + j * numX][2] * basis

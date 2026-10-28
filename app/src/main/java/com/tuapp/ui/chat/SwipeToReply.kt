@@ -40,7 +40,6 @@ fun SwipeToReplyContainer(
     var activado by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxWidth()) {
-        // Icono de fondo
         Box(
             Modifier.align(Alignment.CenterStart).padding(start = 16.dp)
                 .alpha((offsetX.value / umbralPx).coerceIn(0f, 1f))
@@ -55,7 +54,6 @@ fun SwipeToReplyContainer(
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
-            onDragStart = { offsetX = 0f; activado = false },
                         onDragStart = { 
                             activado = false 
                         },
@@ -77,10 +75,7 @@ fun SwipeToReplyContainer(
                             scope.launch {
                                 offsetX.animateTo(
                                     targetValue = 0f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    )
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
                                 )
                             }
                         },
@@ -89,10 +84,7 @@ fun SwipeToReplyContainer(
                             scope.launch {
                                 offsetX.animateTo(
                                     targetValue = 0f,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    )
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
                                 )
                             }
                         }

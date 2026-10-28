@@ -372,7 +372,7 @@ class ChatViewModel(
     }
     private fun parseUsuarios(arr: JsonArray): List<Usuario> = arr.map { el ->
         val o = el.jsonObject
-        Usuario(nombre = o["nombre"]!!.jsonPrimitive.content, avatar = o["avatar"]?.jsonPrimitive?.content ?: "", ultima = o["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0, enLinea = o["en_linea"]?.jsonPrimitive?.boolean ?: false)
+        Usuario(nombre = o["nombre"]!!.jsonPrimitive.content, avatar = o["avatar"]?.jsonPrimitive?.content ?: "", bio = o["bio"]?.jsonPrimitive?.content ?: "", ultima = o["ultima"]?.jsonPrimitive?.doubleOrNull ?: 0.0, enLinea = o["en_linea"]?.jsonPrimitive?.boolean ?: false)
     }
     private fun parseMensajes(arr: JsonArray): List<Msg> = arr.map { parseMensaje(it.jsonObject) }
     private fun parseMensaje(o: JsonObject): Msg {
