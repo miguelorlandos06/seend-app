@@ -16,7 +16,6 @@ class ChatRepository(private val db: AppDatabase) {
             .map { list -> list.map { it.toMsg() } }
             .flowOn(Dispatchers.IO)
 
-    // Construye la lista de chats cruzando los mensajes de Room con los usuarios (para tener avatar y estado)
     fun chats(yo: String): Flow<List<ChatItem>> =
         combine(
             db.mensajes().observarTodosLosMensajes(),
@@ -24,11 +23,9 @@ class ChatRepository(private val db: AppDatabase) {
         ) { todosMensajes, todosUsuarios ->
             val usuariosMap = todosUsuarios.associateBy { it.nombre }
             val agrupados = todosMensajes.groupBy { if (it.de == yo) it.para else it.de }
-            
             agrupados.map { (otro, mensajes) ->
                 val ultimo = mensajes.maxByOrNull { it.ts }!!
                 val usuario = usuariosMap[otro]
-                
                 ChatItem(
                     otro = otro,
                     ultimo = Ultimo(
@@ -55,10 +52,11 @@ class ChatRepository(private val db: AppDatabase) {
     suspend fun guardarMensaje(m: Msg) = withContext(Dispatchers.IO) {
         db.mensajes().insertar(m.toEntity())
     }
-    
+
     suspend fun borrarMensaje(id: String) = withContext(Dispatchers.IO) {
         db.mensajes().borrarPorId(id)
     }
+
     suspend fun guardarMensajes(msgs: List<Msg>) = withContext(Dispatchers.IO) {
         db.mensajes().insertarTodos(msgs.map { it.toEntity() })
     }
@@ -71,7 +69,6 @@ class ChatRepository(private val db: AppDatabase) {
     suspend fun marcarLeido(otro: String, yo: String) = withContext(Dispatchers.IO) {
         db.mensajes().marcarLeido(otro, yo)
     }
-    
     suspend fun actualizarUsuarioLocal(nombre: String, bio: String, avatar: String) = withContext(Dispatchers.IO) {
         val actual = db.usuarios().buscarPorNombre(nombre)
         db.usuarios().reemplazarTodos(listOf(
@@ -104,4 +101,4 @@ fun MsgEntity.toMsg() = Msg(
     }
 )
 fun Usuario.toEntity() = UsuarioEntity(nombre, avatar, ultima, enLinea)
-fun UsuarioEntity.toUsuario() = Usuario(nombre, avatar, ultima, enLinea)
+fun UsuarioEntity.toUsuario() = Usuario(nombre = nombre, avatar = avatar, bio = "", ultima = ultima, enLinea = enLinea)

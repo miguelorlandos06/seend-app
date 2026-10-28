@@ -10,8 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -138,16 +136,6 @@ private fun ChatRow(c: ChatItem, escribiendo: Boolean, activo: Boolean, yo: Stri
 }
 
 @Composable
-private fun CheckIcon(estado: String) {
-    val (icon, tint) = when (estado) {
-        "visto" -> Icons.Default.DoneAll to Azul
-        "entregado" -> Icons.Default.DoneAll to Color(0xFF64748B)
-        else -> Icons.Default.Done to Color(0xFF94A3B8)
-    }
-    Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
-}
-
-@Composable
 private fun ListaUsuarios(s: UiState, onAbrirChat: (String) -> Unit) {
     val otros = s.usuarios.filter { it.nombre != s.nombre }
     if (otros.isEmpty()) {
@@ -181,7 +169,6 @@ private fun UsuarioRow(u: Usuario, onAbrirChat: (String) -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(u.nombre, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-            // En vez de "En línea" o "Últ. conexión", mostramos la bio o un texto por defecto
             val infoTexto = if (u.bio.isNotBlank()) u.bio else "¡Hola! Estoy usando Seend"
             Text(infoTexto, fontSize = 14.sp, color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
