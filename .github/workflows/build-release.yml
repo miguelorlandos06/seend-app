@@ -28,6 +28,10 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > seend-release.jks
 
+      # Generar el wrapper usando el Gradle del sistema en el runner
+      - name: Generate Gradle Wrapper
+        run: gradle wrapper --gradle-version 8.7
+
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
