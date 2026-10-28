@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// --- Light ---
 val Azul        = Color(0xFF2563EB)
 val AzulOscuro  = Color(0xFF1E40AF)
 val AzulClaro   = Color(0xFFDBEAFE)
@@ -18,10 +17,7 @@ val Borde       = Color(0xFFE2E8F0)
 val Texto       = Color(0xFF0F172A)
 val TextoSuave  = Color(0xFF64748B)
 
-// --- Dark ---
 val AzulDark       = Color(0xFF60A5FA)
-val AzulOscuroDark = Color(0xFF3B82F6)
-val AzulClaroDark  = Color(0xFF1E3A8A)
 val FondoDark      = Color(0xFF0F172A)
 val BordeDark      = Color(0xFF334155)
 val TextoDark      = Color(0xFFF1F5F9)
@@ -31,12 +27,14 @@ private val LightScheme = lightColorScheme(
     primary = Azul, onPrimary = Color.White,
     background = Fondo, onBackground = Texto,
     surface = Color.White, onSurface = Texto,
+    surfaceVariant = Color(0xFFF1F5F9), onSurfaceVariant = TextoSuave,
     outline = Borde, error = Color(0xFFB91C1C)
 )
 private val DarkScheme = darkColorScheme(
-    primary = AzulDark, onPrimary = Color(0xFF0F172A),
+    primary = AzulDark, onPrimary = FondoDark,
     background = FondoDark, onBackground = TextoDark,
     surface = Color(0xFF1E293B), onSurface = TextoDark,
+    surfaceVariant = Color(0xFF334155), onSurfaceVariant = TextoSuaveDark,
     outline = BordeDark, error = Color(0xFFF87171)
 )
 

@@ -1,6 +1,7 @@
 package com.tuapp.data
 
 import android.content.Context
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
@@ -11,6 +12,7 @@ private val Context.temaDs by preferencesDataStore("tema")
 private val KEY_OSCURO = booleanPreferencesKey("oscuro")
 
 class TemaPrefs(private val ctx: Context) {
-    val oscuro: Flow<Boolean> = ctx.temaDs.data.map { it[KEY_OSCURO] ?: false }
+    // Si no hay preferencia guardada, usamos el valor del sistema
+    val oscuro: Flow<Boolean> = ctx.temaDs.data.map { it[KEY_OSCURO] ?: isSystemInDarkTheme() }
     suspend fun set(oscuro: Boolean) { ctx.temaDs.edit { it[KEY_OSCURO] = oscuro } }
 }
